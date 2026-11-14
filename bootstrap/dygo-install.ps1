@@ -61,6 +61,13 @@ try {
 if (-not (Test-Path $zip)) { Die "Unduhan gagal." }
 
 Info "Memasang ke $Dest ..."
+# Pertahankan master key yang sudah ada (jangan terhapus saat re-install).
+$keepKey = $null
+$existingKey = Join-Path $Dest "keys\master.key.hex"
+if (Test-Path $existingKey) {
+    $keepKey = Get-Content $existingKey -Raw
+    Info "Master key yang ada dipertahankan."
+}
 if (Test-Path $Dest) { Remove-Item -Recurse -Force $Dest }
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 $extract = Join-Path $tmp "x"
@@ -69,6 +76,10 @@ Expand-Archive -Path $zip -DestinationPath $extract -Force
 $inner = Get-ChildItem -Directory $extract | Select-Object -First 1
 Copy-Item -Recurse -Force (Join-Path $inner.FullName "*") $Dest
 if (-not (Test-Path "$Dest\bin\dygo")) { Die "Struktur paket tidak sesuai (bin/dygo tidak ada)." }
+if ($keepKey) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $Dest "keys") | Out-Null
+    Set-Content -Path (Join-Path $Dest "keys\master.key.hex") -Value $keepKey -NoNewline
+}
 
 # --- perintah `dygo` (shim .cmd) ---
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null

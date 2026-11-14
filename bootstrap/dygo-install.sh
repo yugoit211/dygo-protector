@@ -66,10 +66,23 @@ fi
 [ -s "$tarball" ] || die "Unduhan kosong."
 
 info "Memasang ke $DEST ..."
+# Pertahankan master key yang sudah ada (JANGAN sampai terhapus saat re-install).
+keep_key=""
+if [ -f "$DEST/keys/master.key.hex" ]; then
+    keep_key="$(mktemp)"
+    cp "$DEST/keys/master.key.hex" "$keep_key"
+    info "Master key yang ada dipertahankan."
+fi
 rm -rf "$DEST"
 mkdir -p "$DEST"
 tar -xzf "$tarball" -C "$DEST" --strip-components=1
 [ -f "$DEST/bin/dygo" ] || die "Struktur paket tidak sesuai (bin/dygo tidak ada)."
+if [ -n "$keep_key" ]; then
+    mkdir -p "$DEST/keys"
+    cp "$keep_key" "$DEST/keys/master.key.hex"
+    chmod 600 "$DEST/keys/master.key.hex" 2>/dev/null || true
+    rm -f "$keep_key"
+fi
 
 # --- perintah `dygo` ---
 mkdir -p "$BIN"

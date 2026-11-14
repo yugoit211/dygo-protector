@@ -89,6 +89,10 @@ EXT_DIR="$("$PHP_BIN" -r 'echo ini_get("extension_dir");')"
 say "extension_dir: $EXT_DIR"
 
 copy_so() {
+    # extension_dir kadang belum dibuat (mis. Homebrew pecl dir) — buat dulu.
+    if [ ! -d "$EXT_DIR" ]; then
+        mkdir -p "$EXT_DIR" 2>/dev/null || sudo mkdir -p "$EXT_DIR"
+    fi
     if cp "$SO" "$EXT_DIR/dygo_loader.so" 2>/dev/null; then return 0; fi
     warn "Perlu hak akses untuk menulis ke $EXT_DIR — mencoba sudo..."
     sudo cp "$SO" "$EXT_DIR/dygo_loader.so"
