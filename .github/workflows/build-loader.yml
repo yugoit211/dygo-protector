@@ -7,19 +7,15 @@ name: Build DYGO Loader
 # jadi TIDAK dibangun otomatis di sini. Di Windows gunakan loader PHP murni
 # (tanpa compile) — lihat docs/INSTALL.md — atau build DLL manual.
 #
-# PENTING soal master key:
-#   - Set Secret repo DYGO_MASTER_KEY (hex 64 char) = isi keys/master.key.hex.
-#   - Key ditanam ke biner saat build (ci/patch-key.php).
-#   - Artifact/Release MENGANDUNG KEY ANDA → perlakukan sebagai RAHASIA (repo privat).
-#   - Tanpa secret: build tetap jalan untuk uji kompilasi memakai key acak ephemeral.
+# Model publik: CI HANYA memvalidasi kompilasi + smoke test memakai master key
+# ACAK (ephemeral) dari ci/patch-key.php. Artifact CI TIDAK ber-key produksi dan
+# bukan untuk dipakai di server. Loader ber-key dibangun oleh pengguna sendiri di
+# mesin masing-masing: `dygo install` / `install.sh` menyuntik key lokal via CFLAGS.
 
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
-
-permissions:
-  contents: write
+    branches: [master]
 
 jobs:
   build:
@@ -76,43 +72,9 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "hasil = 1379"
 
-      - name: Upload artifact
+      - name: Upload artifact (uji CI; key ephemeral, bukan untuk produksi)
         uses: actions/upload-artifact@v4
         with:
           name: dygo-loader-${{ matrix.os }}-php${{ matrix.php }}
           path: ${{ env.DEST }}/*
           if-no-files-found: error
-
-  release:
-    name: Attach to Release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download semua artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Zip per-target
-        run: |
-          cd artifacts
-          for d in */; do
-            name="${d%/}"
-            (cd "$d" && zip -r "../${name}.zip" .)
-          done
-          ls -la
-
-      - name: Buat Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*.zip
-          body: |
-            Biner DYGO Loader (Linux + macOS, dibangun otomatis).
-
-            ⚠️ Biner menanam master key dari secret DYGO_MASTER_KEY —
-            perlakukan sebagai RAHASIA, jangan sebar ke publik.
-
-            Pasang: letakkan dygo_loader.so di extension_dir PHP target lalu tambahkan
-            extension=dygo_loader.so ke php.ini. Lihat docs/INSTALL.md.
-            Windows: gunakan loader PHP murni (tanpa compile) — docs/INSTALL.md.

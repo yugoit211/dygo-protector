@@ -36,23 +36,26 @@ verifikasi HMAC + lisensi, lalu compile source asli. Detail byte: `shared/FORMAT
 
 ## Instalasi satu baris (seperti CLI modern)
 
-Repo privat (butuh `gh` yang sudah login — `gh auth login`):
+Tanpa `gh`, tanpa clone — cukup satu perintah:
 
 ```bash
 # Linux / macOS
-gh api repos/yugoit211/dygo-protector/contents/bootstrap/dygo-install.sh -H "Accept: application/vnd.github.raw" | sh
+curl -fsSL https://raw.githubusercontent.com/yugoit211/dygo-protector/master/bootstrap/dygo-install.sh | bash
 ```
 ```powershell
 # Windows (PowerShell / Terminal)
-gh api repos/yugoit211/dygo-protector/contents/bootstrap/dygo-install.ps1 -H "Accept: application/vnd.github.raw" | iex
+irm https://raw.githubusercontent.com/yugoit211/dygo-protector/master/bootstrap/dygo-install.ps1 | iex
 ```
 
-Opsi: tambahkan `| sh -s -- --with-loader` (build loader C, Linux/macOS) atau
-`--fallback-only`. Di Windows set `$env:DYGO_FALLBACK_ONLY="1"` sebelum menjalankan.
+Opsi: tambahkan `| bash -s -- --with-loader` (build loader C, Linux/macOS) atau
+`--fallback-only`. Di Windows set `$env:DYGO_WITH_LOADER="1"` / `$env:DYGO_FALLBACK_ONLY="1"`
+sebelum menjalankan.
 
 Installer mengunduh DYGO ke `~/.dygo`, memasang perintah **`dygo`** ke PATH, dan
-siap dipakai. Jika repo dibuat publik, one-liner-nya cukup `curl … | sh` /
-`irm … | iex` tanpa `gh`.
+siap dipakai (`dygo keygen`, `dygo encode`, `dygo doctor`). Prasyarat: PHP 8.1+.
+
+> Master key Anda tetap rahasia & lokal — tidak ada di repo ini. Loader C ber-key
+> dibangun di mesin Anda (`dygo install`), bukan diunduh.
 
 ## Mulai cepat
 
