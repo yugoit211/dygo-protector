@@ -40,6 +40,7 @@ try {
         case 'machineid':  cmd_machineid(); break;
         case 'doctor':     cmd_doctor(); break;
         case 'setkey':     cmd_setkey($argvv); break;
+        case 'verify':     cmd_verify($argvv); break;
         case 'install':    cmd_install($argvv); break;
         case 'uninstall':  cmd_uninstall($argvv); break;
         case 'version': case '--version': case '-V':
@@ -77,6 +78,60 @@ function cmd_machineid(): void
     out();
     info('Kirim "Node hash" di atas ke vendor Anda. Vendor akan meng-encode');
     info('kode agar HANYA bisa jalan di server ini (node-lock).');
+}
+
+/** Resolusi master key hex (urutan sama seperti loader). Return '' bila tak ada. */
+function dygo_resolve_key_hex(): string
+{
+    $env = getenv('DYGO_KEY') ?: (getenv('DYGO_MASTER_KEY') ?: '');
+    if ($env !== '') { $env = preg_replace('/\s+/', '', $env); if (preg_match('/^[0-9a-f]{64}$/i', $env)) { return $env; } }
+    $home = getenv('HOME') ?: (getenv('USERPROFILE') ?: '');
+    $cands = [];
+    if (($f = getenv('DYGO_KEY_FILE'))) { $cands[] = $f; }
+    if ($home !== '') { $cands[] = $home . '/.dygo-client/dygo.key'; }
+    $cands[] = '/etc/dygo/dygo.key';
+    foreach ($cands as $f) {
+        if ($f && is_file($f)) {
+            $h = preg_replace('/\s+/', '', (string) @file_get_contents($f));
+            if (preg_match('/^[0-9a-f]{64}$/i', $h)) { return $h; }
+        }
+    }
+    return '';
+}
+
+function cmd_verify(array $args): void
+{
+    $file = $args[0] ?? '';
+    if ($file === '' || !is_file($file)) {
+        err('Pemakaian: dygo verify <file-ter-encode-dari-vendor.php>');
+        err('Menguji apakah master key terpasang COCOK dengan file tersebut.');
+        exit(1);
+    }
+    $hex = dygo_resolve_key_hex();
+    if ($hex === '') {
+        err('Master key belum terpasang. Jalankan: dygo setkey');
+        exit(1);
+    }
+    $raw  = hex2bin($hex);
+    $blob = (string) file_get_contents($file);
+    if (strpos($blob, 'DYGO0001') === false) {
+        err('File ini bukan file ter-encode DYGO (tak ada marker).');
+        exit(1);
+    }
+    try {
+        $res = Codec::decode($blob, $raw);
+        ok('Master key COCOK dengan ' . basename($file) . '.');
+        $meta = $res['meta'] ?? [];
+        if (!empty($meta['name']))    { info('Nama asli : ' . $meta['name']); }
+        if (!empty($meta['exp']))     { info('Kedaluwarsa: ' . date('Y-m-d', (int) $meta['exp'])); }
+        if (!empty($meta['domains'])) { info('Domain    : ' . implode(', ', (array) $meta['domains'])); }
+        info('File ini akan jalan otomatis di server ini.');
+    } catch (\Throwable $e) {
+        err('Master key TIDAK cocok (atau file dimodifikasi).');
+        err('Detail: ' . $e->getMessage());
+        err('Pastikan Anda memakai master key yang benar dari vendor: dygo setkey');
+        exit(1);
+    }
 }
 
 function cmd_setkey(array $args): void
@@ -129,12 +184,11 @@ function cmd_doctor(): void
     } else {
         out(c(C_YELLOW, '• loader C belum aktif. Jalankan: dygo install'));
         out(c(C_DIM, '  (atau pakai fallback dygo-runtime.php bila tanpa loader C)'));
+        // info ketersediaan biner hanya relevan saat loader BELUM aktif
+        $bin = find_bundled_binary();
+        $bin ? ok('biner loader tersedia di paket: ' . basename($bin))
+             : out(c(C_YELLOW, '• biner prebuilt untuk OS/PHP ini belum ada di paket'));
     }
-
-    // biner loader tersedia di bundle?
-    $bin = find_bundled_binary();
-    $bin ? ok('biner loader tersedia di paket: ' . basename($bin))
-         : out(c(C_YELLOW, '• biner loader prebuilt tidak ditemukan di paket untuk OS ini'));
 
     // master key terpasang?
     $home = getenv('HOME') ?: (getenv('USERPROFILE') ?: '');
@@ -370,6 +424,7 @@ function cmd_help(): void
     out($b('PERINTAH'));
     out('  install [--yes]      Pasang biner loader prebuilt ke PHP (aktif di php.ini)');
     out('  setkey [hex]         Pasang/ubah master key dari vendor (interaktif bila tanpa argumen)');
+    out('  verify <file>        Uji apakah master key COCOK dengan file ter-encode dari vendor');
     out('  doctor               Cek kesiapan lingkungan & status loader');
     out('  machineid            Tampilkan node-hash server ini (kirim ke vendor untuk node-lock)');
     out('  uninstall [--yes]    Lepas loader dari php.ini + hapus perintah dygo');
