@@ -79,14 +79,23 @@ final class Encoder
         $destDir = rtrim($destDir, '/');
         $stats = ['encoded' => 0, 'copied' => 0, 'excluded' => 0];
 
+        // SELF_FIRST agar direktori (termasuk yang kosong) ikut dikunjungi &
+        // dibuat ulang di tujuan, menjaga struktur folder tetap utuh.
         $it = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS)
+            new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
         );
 
         foreach ($it as $file) {
             /** @var \SplFileInfo $file */
             $rel  = str_replace('\\', '/', substr($file->getPathname(), strlen($srcDir) + 1));
             $dest = $destDir . '/' . $rel;
+
+            // Direktori (mis. folder kosong) -> buat ulang di tujuan, jangan di-copy.
+            if ($file->isDir()) {
+                if (!is_dir($dest)) { mkdir($dest, 0775, true); }
+                continue;
+            }
 
             $isPhp      = strtolower($file->getExtension()) === 'php';
             $isExcluded = $isPhp && $this->isExcluded($rel);

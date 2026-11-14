@@ -410,6 +410,60 @@
       <li>Untuk encode ulang (update produk), jalankan perintah yang sama — folder output ditimpa.</li>
     </ul>
   </div>
+
+  <h3 style="color:#b91c1c">⚠️ Khusus Framework (Laravel / Symfony / dll.)</h3>
+  <p>Framework PHP <b>tidak boleh di-encrypt seluruhnya</b>. Hanya encrypt <b>kode bisnis Anda</b>.
+  Beberapa jenis file wajib tetap <b>plain</b> agar aplikasi jalan:</p>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:30%">Jangan di-encrypt</th><th>Alasan</th></tr></thead>
+    <tbody>
+      <tr><td><code>vendor/*</code></td><td>Framework/library publik. Melakukan reflection &amp; baca file sendiri saat boot → <b>rusak</b> bila terenkripsi. Juga merusak <code>composer</code>.</td></tr>
+      <tr><td><code>*.blade.php</code></td><td>Template Blade dibaca Laravel sebagai <b>teks</b> (bukan di-compile Zend), jadi loader tak bisa mendekripsinya → tampil mentah <code>{{ }}</code>.</td></tr>
+      <tr><td><code>storage/*</code></td><td>File runtime (cache, log, session, view terkompilasi).</td></tr>
+      <tr><td><code>bootstrap/cache/*</code></td><td>Cache config/route/package yang di-generate.</td></tr>
+      <tr><td><code>tests/*</code></td><td>Tidak dipakai di produksi.</td></tr>
+    </tbody>
+  </table>
+  <p>Yang <b>di-encrypt</b> = kode asli Anda: <code>app/</code> (Controllers, Models, Services),
+  <code>routes/</code>, <code>config/</code>, <code>database/</code>, <code>bootstrap/app.php</code>.</p>
+
+  <h4>Perintah encode untuk Laravel</h4>
+  <pre><span class="k">php</span> bin/dygo encode /path/laravel-app -o /path/laravel-enc --loader-only \
+    --exclude 'vendor/*' \
+    --exclude '*.blade.php' \
+    --exclude 'storage/*' \
+    --exclude 'bootstrap/cache/*' \
+    --exclude 'tests/*'</pre>
+
+  <h4>Langkah deploy ke server (Laravel)</h4>
+  <pre><span class="c"># 1) kirim binary-safe (jangan FTP ASCII)</span>
+<span class="k">rsync</span> -a /path/laravel-enc/ root@server:/var/www/app/
+
+<span class="c"># 2) di server: izin + bersihkan cache</span>
+<span class="k">chown</span> -R www-data:www-data /var/www/app
+<span class="k">cd</span> /var/www/app
+<span class="k">php</span> artisan config:clear &amp;&amp; php artisan route:clear &amp;&amp; php artisan view:clear &amp;&amp; php artisan cache:clear</pre>
+
+  <div class="warn"><b>WAJIB untuk web (Apache/Nginx):</b> loader &amp; key harus tersedia di konteks web
+  (bukan cuma CLI). Installer client terbaru melakukannya otomatis, tapi bila manual:
+    <ul style="margin-bottom:0">
+      <li>Aktifkan loader untuk SAPI web: salin <code>99-dygo-loader.ini</code> ke
+          <code>/etc/php/8.x/fpm/conf.d/</code> dan/atau <code>/etc/php/8.x/apache2/conf.d/</code>.</li>
+      <li>Taruh key agar <b>www-data</b> bisa baca: <code>/etc/dygo/dygo.key</code> (perm 640 root:www-data).</li>
+      <li><b>Restart</b> php-fpm/apache2 (loader membaca key saat start).</li>
+    </ul>
+  </div>
+
+  <h4>Error umum Laravel &amp; penyebabnya</h4>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:38%">Gejala</th><th>Penyebab &amp; solusi</th></tr></thead>
+    <tbody>
+      <tr><td>"A facade root has not been set" (500)</td><td><code>vendor/</code> ikut ter-encrypt. Encode ulang dengan <code>--exclude 'vendor/*'</code>.</td></tr>
+      <tr><td><code>{{ }}</code> tampil mentah di HTML</td><td>File Blade ter-encrypt. Encode ulang dengan <code>--exclude '*.blade.php'</code>.</td></tr>
+      <tr><td>Halaman blank + log "master key tidak ditemukan"</td><td>Key tak terbaca user web. Taruh di <code>/etc/dygo/dygo.key</code> (640 root:www-data) + restart.</td></tr>
+      <tr><td>"butuh ekstensi dygo_loader" di web</td><td>Loader aktif di CLI saja. Aktifkan juga di conf.d <b>fpm/apache2</b> + restart.</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <!-- ============== 8 ============== -->
