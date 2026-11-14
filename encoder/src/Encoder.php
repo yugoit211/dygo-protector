@@ -26,6 +26,12 @@ final class Encoder
             'renameVars' => (bool) ($opts['renameVars'] ?? false),
             // Path relatif dari file ter-encode menuju dygo-runtime.php
             'runtimeRef' => (string) ($opts['runtimeRef'] ?? 'dygo-runtime.php'),
+            // Mode "loader-only": stub minimal, TANPA fallback PHP-murni.
+            // Hasil = 1 file per PHP; butuh ekstensi loader C untuk jalan.
+            'loaderOnly' => (bool) ($opts['loaderOnly'] ?? false),
+            // Pola glob (*, ?) file .php yang TIDAK di-encode (disalin apa adanya).
+            // Dicocokkan ke path relatif & nama file. Mis. "config/*.php", "*.conf.php".
+            'exclude'    => array_values(array_filter((array) ($opts['exclude'] ?? []))),
         ];
         $this->obf = new Obfuscator($this->opts['renameVars']);
     }
@@ -71,7 +77,7 @@ final class Encoder
     {
         $srcDir  = rtrim($srcDir, '/');
         $destDir = rtrim($destDir, '/');
-        $stats = ['encoded' => 0, 'copied' => 0];
+        $stats = ['encoded' => 0, 'copied' => 0, 'excluded' => 0];
 
         $it = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS)
@@ -79,10 +85,13 @@ final class Encoder
 
         foreach ($it as $file) {
             /** @var \SplFileInfo $file */
-            $rel  = substr($file->getPathname(), strlen($srcDir) + 1);
+            $rel  = str_replace('\\', '/', substr($file->getPathname(), strlen($srcDir) + 1));
             $dest = $destDir . '/' . $rel;
 
-            if (strtolower($file->getExtension()) === 'php') {
+            $isPhp      = strtolower($file->getExtension()) === 'php';
+            $isExcluded = $isPhp && $this->isExcluded($rel);
+
+            if ($isPhp && !$isExcluded) {
                 $this->encodeFile($file->getPathname(), $dest);
                 $stats['encoded']++;
             } else {
@@ -90,14 +99,32 @@ final class Encoder
                     mkdir(dirname($dest), 0775, true);
                 }
                 copy($file->getPathname(), $dest);
-                $stats['copied']++;
+                $isExcluded ? $stats['excluded']++ : $stats['copied']++;
             }
         }
 
         // Sertakan runtime + codec agar bundle bisa jalan tanpa ekstensi C.
-        $this->bundleRuntime($destDir);
+        // Dilewati pada mode loader-only (hasil cukup file ter-encode saja).
+        if (!$this->opts['loaderOnly']) {
+            $this->bundleRuntime($destDir);
+        }
 
         return $stats;
+    }
+
+    /** Apakah path relatif ini cocok salah satu pola --exclude? (glob *,? ) */
+    private function isExcluded(string $rel): bool
+    {
+        $base = basename($rel);
+        foreach ($this->opts['exclude'] as $pat) {
+            $pat = str_replace('\\', '/', (string) $pat);
+            // cocokkan ke path relatif penuh ATAU ke nama file saja.
+            // '*' tanpa FNM_PATHNAME ikut mencocokkan '/', jadi "vendor/*" dsb jalan.
+            if (fnmatch($pat, $rel) || fnmatch($pat, $base)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function bundleRuntime(string $destDir): void
@@ -114,6 +141,21 @@ final class Encoder
 
     private function buildStub(): string
     {
+        // Mode loader-only: stub minimal. Kalau ekstensi loader C aktif, isi stub
+        // ini TIDAK pernah dijalankan (loader mengganti hasil kompilasi dengan
+        // source asli). Kalau loader TIDAK ada, tampilkan pesan yang jelas.
+        if ($this->opts['loaderOnly']) {
+            return <<<PHP
+<?php
+/* DYGO Encoded File — butuh ekstensi DYGO Loader. Jangan edit. */
+if (!extension_loaded('dygo_loader')) {
+    http_response_code(500);
+    die('File ini terenkripsi DYGO dan membutuhkan ekstensi "dygo_loader" terpasang di server ini.');
+}
+__halt_compiler();
+PHP;
+        }
+
         $ref = var_export($this->opts['runtimeRef'], true);
         return <<<PHP
 <?php

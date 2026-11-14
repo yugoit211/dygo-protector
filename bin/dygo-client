@@ -1,0 +1,337 @@
+#!/usr/bin/env php
+<?php
+/**
+ * DYGO — CLIENT EDITION (hanya-baca / read-only).
+ *
+ * Edisi ini HANYA bisa MENJALANKAN file yang sudah ter-encode. Edisi ini
+ * TIDAK bisa membuat enkripsi (tidak ada `keygen`, tidak ada `encode`,
+ * tidak ada encoder/ maupun Web UI). Seperti ionCube Loader di sisi klien:
+ * loader mendekripsi & menjalankan, tapi tidak bisa meng-encode.
+ *
+ *   dygo install      Pasang loader (biner prebuilt) ke php.ini
+ *   dygo doctor       Cek lingkungan (php, loader aktif, machine-id)
+ *   dygo machineid    Tampilkan node-hash server ini (kirim ke vendor)
+ *   dygo uninstall    Lepas loader + hapus perintah dygo
+ *   dygo version | help
+ */
+
+define('DYGO_HOME', dirname(__DIR__));
+define('DYGO_CLIENT', true);
+require_once DYGO_HOME . '/shared/dygo-codec.php';
+
+use DYGO\Codec;
+
+const C_RESET = "\033[0m", C_BOLD = "\033[1m", C_GREEN = "\033[32m",
+      C_RED = "\033[31m", C_YELLOW = "\033[33m", C_CYAN = "\033[36m", C_DIM = "\033[2m";
+
+function supportsColor(): bool { return function_exists('posix_isatty') ? @posix_isatty(STDOUT) : (getenv('TERM') !== false); }
+function c(string $code, string $s): string { return supportsColor() ? $code . $s . C_RESET : $s; }
+function out(string $s = ''): void { fwrite(STDOUT, $s . "\n"); }
+function err(string $s): void { fwrite(STDERR, c(C_RED, $s) . "\n"); }
+function ok(string $s): void { out(c(C_GREEN, '✓ ') . $s); }
+function info(string $s): void { out(c(C_CYAN, 'ℹ ') . $s); }
+
+$argvv = $argv;
+array_shift($argvv);
+$cmd = array_shift($argvv) ?? 'help';
+
+try {
+    switch ($cmd) {
+        case 'machineid':  cmd_machineid(); break;
+        case 'doctor':     cmd_doctor(); break;
+        case 'install':    cmd_install($argvv); break;
+        case 'uninstall':  cmd_uninstall($argvv); break;
+        case 'version': case '--version': case '-V':
+            out('DYGO Client ' . dygo_version()); break;
+
+        // Perintah vendor yang sengaja DINONAKTIFKAN di edisi klien:
+        case 'keygen': case 'encode':
+            err('Perintah "' . $cmd . '" tidak tersedia di DYGO Client Edition (hanya-baca).');
+            err('Edisi ini hanya MENJALANKAN file ter-encode, tidak bisa membuat enkripsi.');
+            err('Meng-encode dilakukan oleh vendor dengan DYGO edisi penuh.');
+            exit(1);
+
+        case 'help': case '--help': case '-h': default:
+            cmd_help(); break;
+    }
+} catch (\Throwable $e) {
+    err('ERROR: ' . $e->getMessage());
+    exit(1);
+}
+
+/* ---------------- commands ---------------- */
+
+function dygo_version(): string { return '1.0.0'; }
+
+function cmd_machineid(): void
+{
+    $id   = Codec::machineId();
+    $hash = Codec::machineIdHash();
+    if ($hash === '') {
+        err('Tidak bisa menentukan machine-id di server ini.');
+        exit(1);
+    }
+    out(c(C_BOLD, 'Machine-id mentah : ') . ($id ?: '(tersembunyi)'));
+    out(c(C_BOLD, 'Node hash         : ') . c(C_GREEN, $hash));
+    out();
+    info('Kirim "Node hash" di atas ke vendor Anda. Vendor akan meng-encode');
+    info('kode agar HANYA bisa jalan di server ini (node-lock).');
+}
+
+function cmd_doctor(): void
+{
+    out(c(C_BOLD, 'DYGO Doctor — Client Edition (hanya-baca)'));
+    out(str_repeat('-', 44));
+
+    ok('PHP ' . PHP_VERSION . ' (' . PHP_OS_FAMILY . ')');
+
+    // ekstensi yang dipakai loader PHP-murni (fallback)
+    foreach (['hash'] as $ext) {
+        extension_loaded($ext) ? ok("ekstensi {$ext}") : err("ekstensi {$ext} TIDAK ada");
+    }
+    extension_loaded('openssl') ? ok('ekstensi openssl') : out(c(C_YELLOW, '• openssl belum ada (dipakai fallback PHP-murni)'));
+
+    // loader C aktif?
+    if (extension_loaded('dygo_loader')) {
+        ok('loader C (dygo_loader) AKTIF — file ter-encode jalan otomatis');
+    } else {
+        out(c(C_YELLOW, '• loader C belum aktif. Jalankan: dygo install'));
+        out(c(C_DIM, '  (atau pakai fallback dygo-runtime.php bila tanpa loader C)'));
+    }
+
+    // biner loader tersedia di bundle?
+    $bin = find_bundled_binary();
+    $bin ? ok('biner loader tersedia di paket: ' . basename($bin))
+         : out(c(C_YELLOW, '• biner loader prebuilt tidak ditemukan di paket untuk OS ini'));
+
+    // machine id
+    $h = Codec::machineIdHash();
+    $h !== '' ? ok('machine-id terdeteksi (node-lock didukung)')
+              : out(c(C_YELLOW, '• machine-id tak terdeteksi (node-lock tak berfungsi di sini)'));
+
+    out(str_repeat('-', 44));
+    info('Selesai.');
+}
+
+/** Nomor ABI ekstensi (Zend Module API), mis. "20250925" — dari akhir extension_dir. */
+function php_abi_number(): string
+{
+    $extDir = (string) ini_get('extension_dir');
+    if (preg_match('/(\d{8})\D*$/', $extDir, $m)) { return $m[1]; }
+    return '';
+}
+
+/** Cari biner loader prebuilt yang disertakan di dalam paket klien. */
+function find_bundled_binary(): ?string
+{
+    $dir = DYGO_HOME . '/loader';
+    $name = (PHP_OS_FAMILY === 'Windows') ? 'php_dygo_loader.dll' : 'dygo_loader.so';
+    // prioritas: cocok dengan ABI ekstensi (nomor di akhir extension_dir), lalu generik
+    $api = php_abi_number();
+    $cands = [];
+    if ($api !== '') {
+        $cands[] = $dir . '/dygo_loader-' . $api . (PHP_OS_FAMILY === 'Windows' ? '.dll' : '.so');
+    }
+    $cands[] = $dir . '/' . $name;
+    $cands[] = $dir . '/modules/' . $name;
+    foreach ($cands as $p) { if (is_file($p)) { return $p; } }
+    // fallback: glob apa saja
+    foreach (glob($dir . '/dygo_loader*' . (PHP_OS_FAMILY === 'Windows' ? '.dll' : '.so')) ?: [] as $p) {
+        if (is_file($p)) { return $p; }
+    }
+    return null;
+}
+
+function cmd_install(array $args): void
+{
+    $yes = in_array('--yes', $args, true) || in_array('-y', $args, true);
+
+    $bin = find_bundled_binary();
+    if (!$bin) {
+        err('Biner loader prebuilt tidak ditemukan di paket ini untuk ' . PHP_OS_FAMILY
+            . ' / PHP ' . PHP_VERSION . ' (ABI ' . (php_abi_number() ?: '?') . ').');
+        err('Minta vendor mengirim biner loader DYGO yang cocok untuk versi PHP ini,');
+        err('atau gunakan fallback PHP-murni (sertakan runtime/dygo-runtime.php).');
+        exit(1);
+    }
+
+    $extDir = (string) ini_get('extension_dir');
+    if ($extDir === '') { throw new \RuntimeException('extension_dir PHP tidak diketahui.'); }
+    $target = rtrim($extDir, '/\\') . DIRECTORY_SEPARATOR . basename_target();
+
+    $iniFile = php_ini_loaded_file() ?: '';
+    $scanDir = trim((string) php_ini_scanned_files() === '' ? '' : '');
+    // scan-dir conf.d (Linux/Homebrew)
+    $confDir = guess_scan_dir();
+
+    out(c(C_BOLD, 'DYGO install (Client) — rencana:'));
+    out(str_repeat('-', 44));
+    out('  salin biner loader : ' . $bin);
+    out('                  → : ' . $target);
+    if ($confDir)      { out('  aktifkan via ini   : ' . $confDir . '/99-dygo-loader.ini'); }
+    elseif ($iniFile)  { out('  aktifkan di php.ini : ' . $iniFile); }
+    else               { out(c(C_YELLOW, '  php.ini tak terdeteksi — Anda perlu menambah "extension=dygo_loader" manual')); }
+    out(str_repeat('-', 44));
+
+    if (!$yes) {
+        $tty = function_exists('posix_isatty') ? @posix_isatty(STDIN) : false;
+        if ($tty) {
+            fwrite(STDOUT, c(C_YELLOW, 'Lanjutkan? ') . '[y/N] ');
+            $line = strtolower(trim((string) fgets(STDIN)));
+            if ($line !== 'y' && $line !== 'yes') { out('Dibatalkan.'); return; }
+        } else {
+            err('Butuh konfirmasi. Jalankan ulang dengan --yes.');
+            exit(1);
+        }
+    }
+
+    // 1) pastikan extension_dir ada
+    if (!is_dir($extDir)) { @mkdir($extDir, 0755, true); }
+
+    // 2) salin biner
+    if (!@copy($bin, $target)) {
+        err('Gagal menyalin ke ' . $target . ' (butuh hak akses).');
+        err('Coba manual: sudo cp ' . escapeshellarg($bin) . ' ' . escapeshellarg($target));
+        exit(1);
+    }
+    @chmod($target, 0644);
+    ok('biner loader terpasang: ' . $target);
+
+    // 3) aktifkan
+    $extLine = 'extension=' . pathinfo(basename_target(), PATHINFO_FILENAME);
+    if ($confDir) {
+        if (!is_dir($confDir)) { @mkdir($confDir, 0755, true); }
+        $ini = $confDir . '/99-dygo-loader.ini';
+        if (@file_put_contents($ini, "; DYGO Loader\n{$extLine}\n") !== false) {
+            ok('loader diaktifkan: ' . $ini);
+        } else {
+            warn_manual($extLine, $iniFile);
+        }
+    } elseif ($iniFile && is_writable($iniFile)) {
+        $cur = (string) @file_get_contents($iniFile);
+        if (!preg_match('/^\s*extension\s*=\s*dygo_loader/mi', $cur)) {
+            @file_put_contents($iniFile, rtrim($cur) . "\n\n; DYGO Loader\n{$extLine}\n");
+        }
+        ok('loader diaktifkan di php.ini: ' . $iniFile);
+    } else {
+        warn_manual($extLine, $iniFile);
+    }
+
+    out();
+    // verifikasi
+    $loaded = trim((string) @shell_exec(escapeshellarg(PHP_BINARY) . ' -m 2>/dev/null | grep -i dygo_loader'));
+    if ($loaded !== '') { ok('Terverifikasi: dygo_loader aktif di PHP CLI.'); }
+    else { info('Jalankan "dygo doctor" untuk memverifikasi. Untuk web, restart php-fpm/apache.'); }
+    info('File ter-encode dari vendor kini jalan otomatis — tanpa file pendukung.');
+}
+
+function basename_target(): string
+{
+    return (PHP_OS_FAMILY === 'Windows') ? 'php_dygo_loader.dll' : 'dygo_loader.so';
+}
+
+function guess_scan_dir(): string
+{
+    // Homebrew / distro conf.d: ambil dari output php --ini bila ada
+    $line = (string) @shell_exec(escapeshellarg(PHP_BINARY) . ' --ini 2>/dev/null');
+    if (preg_match('/Scan for additional .ini files in:\s*(.+)/', $line, $m)) {
+        $d = trim($m[1]);
+        if ($d !== '' && $d !== '(none)' && is_dir($d)) { return rtrim($d, '/\\'); }
+    }
+    return '';
+}
+
+function warn_manual(string $extLine, string $iniFile): void
+{
+    out(c(C_YELLOW, '• Tidak bisa menulis php.ini otomatis.'));
+    out('  Tambahkan baris ini ke php.ini' . ($iniFile ? " ({$iniFile})" : '') . ' lalu restart:');
+    out('    ' . $extLine);
+}
+
+function cmd_uninstall(array $args): void
+{
+    $yes   = in_array('--yes', $args, true) || in_array('-y', $args, true);
+
+    $iniFile = php_ini_loaded_file() ?: '';
+    $extDir  = (string) ini_get('extension_dir');
+    $homeEnv = getenv('HOME') ?: (getenv('USERPROFILE') ?: '');
+    $confDir = guess_scan_dir();
+
+    $binaries = [];
+    foreach (['dygo_loader.so', 'php_dygo_loader.dll'] as $b) {
+        if ($extDir && is_file($extDir . DIRECTORY_SEPARATOR . $b)) { $binaries[] = $extDir . DIRECTORY_SEPARATOR . $b; }
+    }
+    $scanIni = ($confDir && is_file($confDir . '/99-dygo-loader.ini')) ? $confDir . '/99-dygo-loader.ini' : '';
+    $iniHasLine = ($iniFile && is_file($iniFile) && preg_match('/dygo_loader/i', (string) @file_get_contents($iniFile)));
+
+    $launchers = [];
+    if (PHP_OS_FAMILY === 'Windows') {
+        foreach ([DYGO_HOME . '\\bin-cmd\\dygo.cmd'] as $l) { if (is_file($l)) { $launchers[] = $l; } }
+    } else {
+        foreach ([$homeEnv ? $homeEnv . '/.local/bin/dygo' : '', '/usr/local/bin/dygo'] as $p) {
+            if ($p && is_file($p)) { $launchers[] = $p; }
+        }
+        $launchers = array_values(array_unique($launchers));
+    }
+
+    out(c(C_BOLD, 'DYGO uninstall (Client) — yang akan dilakukan:'));
+    out(str_repeat('-', 48));
+    foreach ($binaries as $b)  { out('  hapus biner loader  : ' . $b); }
+    if ($iniHasLine)           { out('  lepas dari php.ini   : ' . $iniFile); }
+    if ($scanIni)              { out('  hapus ini scan-dir   : ' . $scanIni); }
+    foreach ($launchers as $l) { out('  hapus perintah dygo  : ' . $l); }
+    out('  folder paket         : ' . DYGO_HOME . '  (DIPERTAHANKAN)');
+    out(str_repeat('-', 48));
+
+    if (!$binaries && !$iniHasLine && !$scanIni && !$launchers) {
+        info('Tidak ada yang perlu dilepas.');
+        return;
+    }
+
+    if (!$yes) {
+        $tty = function_exists('posix_isatty') ? @posix_isatty(STDIN) : false;
+        if ($tty) {
+            fwrite(STDOUT, c(C_YELLOW, 'Lanjutkan? ') . '[y/N] ');
+            $line = strtolower(trim((string) fgets(STDIN)));
+            if ($line !== 'y' && $line !== 'yes') { out('Dibatalkan.'); return; }
+        } else { err('Butuh konfirmasi. Jalankan ulang dengan --yes.'); exit(1); }
+    }
+
+    $warn = [];
+    foreach ($binaries as $b) { @unlink($b) ? ok('biner dihapus: ' . $b) : $warn[] = "Gagal hapus {$b} (coba: sudo rm -f \"{$b}\")"; }
+    if ($iniHasLine) {
+        $lines = preg_split('/\r?\n/', (string) file_get_contents($iniFile));
+        $kept = array_filter($lines, fn($l) => !preg_match('/dygo_loader/i', $l) && trim($l) !== '; DYGO Loader');
+        @file_put_contents($iniFile, implode("\n", $kept)) !== false ? ok('loader dilepas dari php.ini') : $warn[] = "Gagal menulis {$iniFile}";
+    }
+    if ($scanIni)  { @unlink($scanIni) ? ok('ini scan-dir dihapus') : $warn[] = "Gagal hapus {$scanIni}"; }
+    foreach ($launchers as $l) { @unlink($l) ? ok('perintah dihapus: ' . $l) : $warn[] = "Gagal hapus {$l}"; }
+
+    out();
+    foreach ($warn as $w) { out(c(C_YELLOW, '• ') . $w); }
+    ok('DYGO uninstall selesai.');
+    info('Web (php-fpm/apache): restart layanannya agar php.ini terbaca ulang.');
+}
+
+function cmd_help(): void
+{
+    $b = fn($s) => c(C_BOLD, $s);
+    out(c(C_BOLD . C_CYAN, 'DYGO Client Edition') . ' — hanya-baca (gaya ionCube Loader)  v' . dygo_version());
+    out();
+    out(c(C_DIM, 'Edisi ini HANYA menjalankan file ter-encode. Tidak bisa membuat enkripsi.'));
+    out();
+    out($b('PEMAKAIAN'));
+    out('  dygo <perintah> [opsi]');
+    out();
+    out($b('PERINTAH'));
+    out('  install [--yes]      Pasang biner loader prebuilt ke PHP (aktif di php.ini)');
+    out('  doctor               Cek kesiapan lingkungan & status loader');
+    out('  machineid            Tampilkan node-hash server ini (kirim ke vendor untuk node-lock)');
+    out('  uninstall [--yes]    Lepas loader dari php.ini + hapus perintah dygo');
+    out('  version | help');
+    out();
+    out($b('CATATAN'));
+    out('  • "keygen" & "encode" sengaja tidak tersedia di edisi klien.');
+    out('  • File ter-encode yang Anda terima dari vendor jalan otomatis setelah "dygo install".');
+    out('  • Tanpa loader C, bisa pakai fallback: runtime/dygo-runtime.php + master key dari vendor.');
+}

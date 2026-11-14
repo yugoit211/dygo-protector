@@ -20,6 +20,30 @@ fallback. Mendukung **expiry**, **domain-lock**, **anti-tamper**, dan
 | `keys/`     | `master.key.hex` — kunci rahasia (JANGAN commit / sebar).             |
 | `samples/`  | Contoh source. `dist/` — contoh hasil encode.                         |
 
+## Dua edisi: Vendor vs Client (hanya-baca)
+
+Seperti ionCube (Encoder vs Loader), DYGO punya dua peran:
+
+| Edisi | CLI | Bisa | Tidak bisa | Untuk |
+|-------|-----|------|-----------|-------|
+| **Vendor (penuh)** | `bin/dygo` | keygen, **encode**, install, doctor | — | Mesin Anda |
+| **Client (hanya-baca)** | `bin/dygo-client` | install loader, doctor, machineid, uninstall | **keygen & encode (ditolak)** | Server klien |
+
+Edisi klien **hanya menjalankan** file ter-encode — tidak ada encoder, Web UI,
+`keygen`, maupun `encode`. Buat paket siap-kirim untuk klien:
+
+```bash
+php bin/dygo install              # (sekali) build loader C ber-key Anda
+bootstrap/make-client.sh          # → dist/dygo-client.tar.gz  (TANPA encoder & TANPA key hex)
+```
+
+Klien cukup: `tar -xzf dygo-client.tar.gz && sh dygo-client/install-client.sh`.
+
+> **Aturan kunci:** biner loader di paket klien harus dibangun dengan master key
+> yang **sama** seperti yang dipakai meng-`encode`. Key tertanam di dalam biner
+> (bukan teks) → klien bisa menjalankan, tapi tidak bisa membuat enkripsi.
+> Mode fallback PHP-murni butuh key hex (`make-client.sh --with-key`) → proteksi lebih lemah.
+
 ## Cara kerja
 
 ```
@@ -130,6 +154,7 @@ file ter-encode jalan otomatis — tanpa file pendukung.
 | `--expire <tgl>`  | Berhenti setelah tanggal tsb |
 | `--node <hash>`   | Hanya jalan di server dgn machine-id tsb (`dygo machineid`) |
 | `--rename-vars`   | Obfuscate nama variabel lokal |
+| `--loader-only`   | 1 file per PHP, tanpa fallback (wajib loader C terpasang) |
 
 ## Status teruji (di repo ini)
 

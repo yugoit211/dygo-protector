@@ -54,6 +54,66 @@ static int dygo_hex2bin32(const char *hex, uint8_t out[32]) {
     return 1;
 }
 
+/* Cari 64 char hex pertama di dalam teks (abaikan spasi/newline/komentar sederhana),
+   lalu ubah jadi 32 byte. Return 1 bila berhasil. */
+static int dygo_parse_hexkey(const char *buf, size_t len, uint8_t out[32]) {
+    char hex[64];
+    size_t n = 0;
+    for (size_t i = 0; i < len && n < 64; i++) {
+        char c = buf[i];
+        int is_hex = (c>='0'&&c<='9')||((c|32)>='a'&&(c|32)<='f');
+        if (is_hex) { hex[n++] = c; }
+        else if (c==' '||c=='\t'||c=='\r'||c=='\n') { continue; }
+        else { n = 0; }           /* karakter lain -> mulai ulang (abaikan baris komentar dsb) */
+    }
+    if (n != 64) return 0;
+    return dygo_hex2bin32(hex, out);
+}
+
+/* Coba baca key-hex dari sebuah file. Return 1 bila dapat 32 byte valid. */
+static int dygo_try_keyfile(const char *path, uint8_t out[32]) {
+    if (!path || !*path) return 0;
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    char tmp[512];
+    size_t r = fread(tmp, 1, sizeof(tmp), f);
+    fclose(f);
+    if (r == 0) return 0;
+    return dygo_parse_hexkey(tmp, r, out);
+}
+
+/* Resolusi master key saat runtime, berurutan prioritas:
+     1. env DYGO_KEY / DYGO_MASTER_KEY (hex 64)
+     2. env DYGO_KEY_FILE (path berisi hex)
+     3. file default: $HOME/.dygo-client/dygo.key, /etc/dygo/dygo.key
+     4. key yang di-compile (DYGO_MASTER_KEY_HEX) bila BUKAN placeholder nol
+   Return 1 bila dapat key valid. */
+static int dygo_resolve_master_key(uint8_t out[32]) {
+    const char *env;
+
+    if ((env = getenv("DYGO_KEY")) && dygo_parse_hexkey(env, strlen(env), out)) return 1;
+    if ((env = getenv("DYGO_MASTER_KEY")) && dygo_parse_hexkey(env, strlen(env), out)) return 1;
+
+    if ((env = getenv("DYGO_KEY_FILE")) && dygo_try_keyfile(env, out)) return 1;
+
+    const char *home = getenv("HOME");
+    if (home && *home) {
+        char path[1024];
+        snprintf(path, sizeof(path), "%s/.dygo-client/dygo.key", home);
+        if (dygo_try_keyfile(path, out)) return 1;
+    }
+    if (dygo_try_keyfile("/etc/dygo/dygo.key", out)) return 1;
+
+    /* key tertanam saat build (edisi vendor). Tolak placeholder semua-nol. */
+    {
+        static const char ZERO[] =
+            "0000000000000000000000000000000000000000000000000000000000000000";
+        if (strcmp(DYGO_MASTER_KEY_HEX, ZERO) != 0 &&
+            dygo_hex2bin32(DYGO_MASTER_KEY_HEX, out)) return 1;
+    }
+    return 0;
+}
+
 /* Baca seluruh isi file ke buffer baru (emalloc). Caller harus efree. */
 static char *dygo_read_file(const char *path, size_t *out_len) {
     FILE *f = fopen(path, "rb");
@@ -405,9 +465,15 @@ static zend_op_array *dygo_compile_file(zend_file_handle *file_handle, int type)
 
 PHP_MINIT_FUNCTION(dygo_loader) {
     uint8_t master[32];
-    if (!dygo_hex2bin32(DYGO_MASTER_KEY_HEX, master)) {
-        zend_error(E_WARNING, "DYGO Loader: DYGO_MASTER_KEY_HEX tidak valid");
-        return FAILURE;
+    if (!dygo_resolve_master_key(master)) {
+        /* Tidak ada key (env/file/compiled). Module tetap SUCCESS agar PHP jalan
+           normal, tapi JANGAN pasang hook: file ter-encode akan error jelas saat
+           dibuka, file biasa tidak terganggu. */
+        zend_error(E_WARNING,
+            "DYGO Loader: master key tidak ditemukan "
+            "(set env DYGO_KEY, atau taruh ~/.dygo-client/dygo.key). "
+            "File ter-encode tidak akan bisa dijalankan.");
+        return SUCCESS;
     }
 
     /* encKey = SHA256(master || "DYGO-ENC-v1") */

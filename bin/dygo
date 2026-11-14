@@ -93,7 +93,7 @@ function cmd_machineid(): void
 function cmd_encode(array $args, string $keyFile): void
 {
     $input = null; $output = null;
-    $domains = []; $nodes = []; $expire = 0; $renameVars = false;
+    $domains = []; $nodes = []; $expire = 0; $renameVars = false; $loaderOnly = false; $exclude = [];
 
     for ($i = 0; $i < count($args); $i++) {
         $a = $args[$i];
@@ -106,6 +106,9 @@ function cmd_encode(array $args, string $keyFile): void
                 if ($ts === false) { throw new \RuntimeException('Tanggal --expire tidak valid.'); }
                 $expire = $ts; break;
             case '--rename-vars':        $renameVars = true; break;
+            case '--loader-only': case '--single':
+                                         $loaderOnly = true; break;
+            case '--exclude':            $exclude[] = $args[++$i] ?? ''; break;
             case '--key':                $keyFile = $args[++$i] ?? $keyFile; break;
             default:
                 if ($input === null && ($a === '' || $a[0] !== '-')) { $input = $a; }
@@ -131,12 +134,19 @@ function cmd_encode(array $args, string $keyFile): void
         'domains'    => array_filter($domains),
         'nodes'      => array_filter($nodes),
         'renameVars' => $renameVars,
+        'loaderOnly' => $loaderOnly,
+        'exclude'    => array_filter($exclude),
     ]);
 
     if (is_dir($input)) {
         $stats = $encoder->encodeDir($input, $output);
-        ok("Folder ter-encode: {$stats['encoded']} file PHP, {$stats['copied']} file lain disalin → {$output}");
-        info('Runtime fallback (dygo-runtime.php + dygo-codec.php) disertakan di folder output.');
+        $exMsg = !empty($stats['excluded']) ? ", {$stats['excluded']} PHP dikecualikan (disalin apa adanya)" : '';
+        ok("Folder ter-encode: {$stats['encoded']} file PHP, {$stats['copied']} file lain disalin{$exMsg} → {$output}");
+        if ($loaderOnly) {
+            info('Mode loader-only: TANPA fallback. File ter-encode butuh ekstensi loader C.');
+        } else {
+            info('Runtime fallback (dygo-runtime.php + dygo-codec.php) disertakan di folder output.');
+        }
     } elseif (is_file($input)) {
         $encoder->encodeFile($input, $output);
         ok("File ter-encode → {$output}");
@@ -374,6 +384,9 @@ function cmd_help(): void
     out('  --node <hash>                 Kunci ke server tertentu (dari: dygo machineid)');
     out('  --expire <tgl>                Kedaluwarsa, mis. 2027-12-31 atau "+30 days"');
     out('  --rename-vars                 Obfuscate nama variabel lokal');
+    out('  --loader-only                 1 file per PHP (tanpa fallback; wajib loader C)');
+    out('  --exclude <pola>              PHP yang TAK di-encode, disalin apa adanya (boleh berulang;');
+    out('                                glob *,? cocok ke path & nama file, mis. "config/*.php")');
     out('  --key <file.hex>              Master key alternatif');
     out();
     out($b('CONTOH'));

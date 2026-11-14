@@ -39,3 +39,7 @@ loader/*.dep
 
 # Claude Code local settings (jangan commit)
 .claude/settings.local.json
+
+# Client packages (keyed binaries — never commit)
+dist/dygo-client/
+dist/dygo-client*.tar.gz

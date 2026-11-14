@@ -37,40 +37,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Tidak ada file diunggah.');
         }
 
+        $loaderOnly = !empty($_POST['loader_only']);
+
+        $exclude = array_values(array_filter(array_map('trim',
+            preg_split('/[\s,]+/', (string) ($_POST['exclude'] ?? '')))));
+
         $encoder = new Encoder($masterKey, [
             'exp'        => $expire,
             'domains'    => $domains,
             'renameVars' => !empty($_POST['rename_vars']),
+            'loaderOnly' => $loaderOnly,
         ]);
 
-        // Siapkan ZIP berisi file ter-encode + runtime + codec.
-        $tmpZip = tempnam(sys_get_temp_dir(), 'dygo') . '.zip';
-        $zip = new ZipArchive();
-        $zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-
-        $count = 0;
+        // Encode semua file dulu ke memori (yang cocok --exclude disalin apa adanya).
+        $encodedFiles = []; // nama => isi
+        $excludedCount = 0;
         foreach ($_FILES['files']['name'] as $i => $name) {
             if ($_FILES['files']['error'][$i] !== UPLOAD_ERR_OK) { continue; }
             if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== 'php') {
                 throw new RuntimeException("Hanya file .php yang diterima: " . h($name));
             }
-            $src = file_get_contents($_FILES['files']['tmp_name'][$i]);
-            $encoded = $encoder->encodeSource($src, basename($name));
-            $zip->addFromString(basename($name), $encoded);
-            $count++;
+            $base = basename($name);
+            $src  = file_get_contents($_FILES['files']['tmp_name'][$i]);
+            $skip = false;
+            foreach ($exclude as $pat) { if (fnmatch($pat, $base)) { $skip = true; break; } }
+            if ($skip) {
+                $encodedFiles[$base] = $src;       // disalin apa adanya (tak di-encode)
+                $excludedCount++;
+            } else {
+                $encodedFiles[$base] = $encoder->encodeSource($src, $base);
+            }
         }
 
-        if ($count === 0) { throw new RuntimeException('Tidak ada file .php valid.'); }
+        if (!$encodedFiles) { throw new RuntimeException('Tidak ada file .php valid.'); }
 
-        // Sertakan runtime fallback + codec + kunci contoh.
-        $zip->addFile(__DIR__ . '/../runtime/dygo-runtime.php', 'dygo-runtime.php');
-        $zip->addFile(__DIR__ . '/../shared/dygo-codec.php', 'dygo-codec.php');
-        $zip->addFromString('README.txt',
-            "Bundle DYGO\n" .
-            "- File .php di sini sudah ter-encode.\n" .
-            "- Agar jalan TANPA ekstensi C: set env DYGO_MASTER_KEY (hex 64 char),\n" .
-            "  atau taruh file 'dygo.key' berisi master key hex di folder ini.\n" .
-            "- Dengan ekstensi loader C terpasang, file jalan otomatis.\n");
+        // Mode loader-only + 1 file → kirim SATU file .php langsung (bukan ZIP).
+        if ($loaderOnly && count($encodedFiles) === 1) {
+            $name = array_key_first($encodedFiles);
+            $data = $encodedFiles[$name];
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . $name . '"');
+            header('Content-Length: ' . strlen($data));
+            echo $data;
+            exit;
+        }
+
+        // Selain itu → ZIP.
+        $tmpZip = tempnam(sys_get_temp_dir(), 'dygo') . '.zip';
+        $zip = new ZipArchive();
+        $zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        foreach ($encodedFiles as $name => $content) {
+            $zip->addFromString($name, $content);
+        }
+
+        if ($loaderOnly) {
+            // Tanpa bundel fallback. Cukup file ter-encode saja.
+            $zip->addFromString('README.txt',
+                "Bundle DYGO (mode loader-only)\n" .
+                "- Hanya file .php ter-encode. TIDAK ada runtime fallback.\n" .
+                "- Butuh ekstensi DYGO Loader (dygo_loader) terpasang di server.\n" .
+                "- Pasang loader: https://github.com/yugoit211/dygo-loader\n");
+        } else {
+            // Sertakan runtime fallback + codec agar bisa jalan tanpa ekstensi C.
+            $zip->addFile(__DIR__ . '/../runtime/dygo-runtime.php', 'dygo-runtime.php');
+            $zip->addFile(__DIR__ . '/../shared/dygo-codec.php', 'dygo-codec.php');
+            $zip->addFromString('README.txt',
+                "Bundle DYGO\n" .
+                "- File .php di sini sudah ter-encode.\n" .
+                "- Agar jalan TANPA ekstensi C: set env DYGO_MASTER_KEY (hex 64 char),\n" .
+                "  atau taruh file 'dygo.key' berisi master key hex di folder ini.\n" .
+                "- Dengan ekstensi loader C terpasang, file jalan otomatis.\n");
+        }
         $zip->close();
 
         $data = file_get_contents($tmpZip);
@@ -128,12 +165,22 @@ $keyExists = is_file($keyFile) && preg_match('/^[0-9a-f]{64}$/i', trim((string) 
             <input type="date" name="expire">
         </label>
 
+        <label class="field">
+            <span>Kecualikan <small>(opsional, pola pisah koma — file .php ini TIDAK di-encode, mis. <code>config.php</code>, <code>*.conf.php</code>)</small></span>
+            <input type="text" name="exclude" placeholder="config.php, *.config.php">
+        </label>
+
         <label class="check">
             <input type="checkbox" name="rename_vars" value="1">
             <span>Rename variabel lokal <small>(hati-hati: compact/extract/variable-variable)</small></span>
         </label>
 
-        <button type="submit" <?= $keyExists ? '' : 'disabled' ?>>Encode &amp; Download ZIP</button>
+        <label class="check">
+            <input type="checkbox" name="loader_only" value="1" checked>
+            <span>Hanya file loader <small>(1 file per PHP, tanpa fallback — butuh ekstensi loader C. Upload 1 file = unduh 1 file .php langsung)</small></span>
+        </label>
+
+        <button type="submit" <?= $keyExists ? '' : 'disabled' ?>>Encode &amp; Download</button>
     </form>
 
     <details class="help">
