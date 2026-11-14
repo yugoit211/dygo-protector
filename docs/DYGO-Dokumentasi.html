@@ -428,12 +428,11 @@
   <code>routes/</code>, <code>config/</code>, <code>database/</code>, <code>bootstrap/app.php</code>.</p>
 
   <h4>Perintah encode untuk Laravel</h4>
-  <pre><span class="k">php</span> bin/dygo encode /path/laravel-app -o /path/laravel-enc --loader-only \
-    --exclude 'vendor/*' \
-    --exclude '*.blade.php' \
-    --exclude 'storage/*' \
-    --exclude 'bootstrap/cache/*' \
-    --exclude 'tests/*'</pre>
+  <p>Gunakan flag <code>--laravel</code> — otomatis mengecualikan semua file di atas:</p>
+  <pre><span class="k">php</span> bin/dygo encode /path/laravel-app -o /path/laravel-enc --laravel --loader-only</pre>
+  <p>Setara dengan menulis manual: <code>--exclude 'vendor/*' --exclude '*.blade.php'
+  --exclude 'storage/*' --exclude 'bootstrap/cache/*' --exclude 'tests/*'</code>.
+  Anda tetap bisa menambah <code>--exclude</code> lain, atau <code>--domain</code>/<code>--expire</code>.</p>
 
   <h4>Langkah deploy ke server (Laravel)</h4>
   <pre><span class="c"># 1) kirim binary-safe (jangan FTP ASCII)</span>
@@ -707,6 +706,7 @@ faf6b78fbc2abb980f973786824f7d…  <span class="c">← ciphertext AES (source TA
   <table class="avoidbreak">
     <tbody>
       <tr><td><code>--loader-only</code></td><td>1 file per PHP, tanpa fallback</td></tr>
+      <tr><td><code>--laravel</code></td><td>Preset Laravel: auto-exclude vendor/, *.blade.php, storage/, bootstrap/cache/, tests/</td></tr>
       <tr><td><code>--exclude &lt;pola&gt;</code></td><td>PHP yang tak di-encode (glob, boleh berulang)</td></tr>
       <tr><td><code>--domain &lt;host&gt;</code></td><td>Kunci domain (dukung <code>*.</code>)</td></tr>
       <tr><td><code>--expire &lt;tgl&gt;</code></td><td>Masa berlaku</td></tr>

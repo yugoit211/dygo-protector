@@ -94,7 +94,7 @@ function cmd_machineid(): void
 function cmd_encode(array $args, string $keyFile): void
 {
     $input = null; $output = null;
-    $domains = []; $nodes = []; $expire = 0; $renameVars = false; $loaderOnly = false; $exclude = [];
+    $domains = []; $nodes = []; $expire = 0; $renameVars = false; $loaderOnly = false; $exclude = []; $laravel = false;
 
     for ($i = 0; $i < count($args); $i++) {
         $a = $args[$i];
@@ -109,6 +109,7 @@ function cmd_encode(array $args, string $keyFile): void
             case '--rename-vars':        $renameVars = true; break;
             case '--loader-only': case '--single':
                                          $loaderOnly = true; break;
+            case '--laravel':            $laravel = true; break;
             case '--exclude':            $exclude[] = $args[++$i] ?? ''; break;
             case '--key':                $keyFile = $args[++$i] ?? $keyFile; break;
             default:
@@ -120,6 +121,12 @@ function cmd_encode(array $args, string $keyFile): void
     if ($input === null || $output === null) {
         err('Pemakaian: dygo encode <file|folder> -o <output> [--domain h] [--node hash] [--expire tgl] [--rename-vars]');
         exit(1);
+    }
+
+    // Preset Laravel: otomatis kecualikan file yang WAJIB tetap plain.
+    if ($laravel) {
+        $preset = ['vendor/*', '*.blade.php', 'storage/*', 'bootstrap/cache/*', 'tests/*'];
+        $exclude = array_values(array_unique(array_merge($exclude, $preset)));
     }
 
     try {
@@ -143,6 +150,9 @@ function cmd_encode(array $args, string $keyFile): void
         $stats = $encoder->encodeDir($input, $output);
         $exMsg = !empty($stats['excluded']) ? ", {$stats['excluded']} PHP dikecualikan (disalin apa adanya)" : '';
         ok("Folder ter-encode: {$stats['encoded']} file PHP, {$stats['copied']} file lain disalin{$exMsg} → {$output}");
+        if ($laravel) {
+            info('Mode Laravel: vendor/, *.blade.php, storage/, bootstrap/cache/, tests/ TIDAK di-encrypt.');
+        }
         if ($loaderOnly) {
             info('Mode loader-only: TANPA fallback. File ter-encode butuh ekstensi loader C.');
         } else {
@@ -408,6 +418,8 @@ function cmd_help(): void
     out('  --expire <tgl>                Kedaluwarsa, mis. 2027-12-31 atau "+30 days"');
     out('  --rename-vars                 Obfuscate nama variabel lokal');
     out('  --loader-only                 1 file per PHP (tanpa fallback; wajib loader C)');
+    out('  --laravel                     Preset Laravel: auto-exclude vendor/, *.blade.php,');
+    out('                                storage/, bootstrap/cache/, tests/ (tetap plain)');
     out('  --exclude <pola>              PHP yang TAK di-encode, disalin apa adanya (boleh berulang;');
     out('                                glob *,? cocok ke path & nama file, mis. "config/*.php")');
     out('  --key <file.hex>              Master key alternatif');
