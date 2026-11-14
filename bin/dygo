@@ -38,6 +38,7 @@ try {
         case 'keygen':     cmd_keygen($argvv, $keyFile); break;
         case 'machineid':  cmd_machineid(); break;
         case 'encode':     cmd_encode($argvv, $keyFile); break;
+        case 'canary':     cmd_canary($argvv, $keyFile); break;
         case 'doctor':     cmd_doctor($keyFile); break;
         case 'install':    cmd_install($argvv); break;
         case 'uninstall':  cmd_uninstall($argvv); break;
@@ -158,6 +159,27 @@ function cmd_encode(array $args, string $keyFile): void
     if ($domains) { info('Domain  : ' . implode(', ', array_filter($domains))); }
     if ($nodes)   { info('Node    : ' . count(array_filter($nodes)) . ' server diizinkan'); }
     info('Obfusc. : komentar/whitespace' . ($renameVars ? ' + rename variabel' : ''));
+}
+
+function cmd_canary(array $args, string $keyFile): void
+{
+    $output = 'canary.dygo.php';
+    for ($i = 0; $i < count($args); $i++) {
+        if ($args[$i] === '-o' || $args[$i] === '--out') { $output = $args[++$i] ?? $output; }
+        elseif ($args[$i] === '--key') { $keyFile = $args[++$i] ?? $keyFile; }
+    }
+    try { $masterKey = Codec::loadMasterKey($keyFile); }
+    catch (\Throwable $e) { err($e->getMessage()); err('Buat dulu: dygo keygen'); exit(1); }
+
+    $encoder = new Encoder($masterKey, ['loaderOnly' => true]);
+    $src = "<?php /* DYGO canary — untuk verifikasi master key klien. */ return 'DYGO-OK';\n";
+    file_put_contents($output, $encoder->encodeSource($src, 'canary'));
+    ok("Canary dibuat: {$output}");
+    out();
+    info('Kirim file ini ke klien untuk verifikasi key. Di server klien, salah satu:');
+    out('  • taruh sebagai ~/.dygo-client/canary.php  → otomatis diverifikasi saat install');
+    out('  • atau: DYGO_VERIFY_FILE=/path/canary.dygo.php saat menjalankan installer');
+    out('  • atau manual: dygo verify ' . $output);
 }
 
 function cmd_doctor(string $keyFile): void
@@ -372,6 +394,7 @@ function cmd_help(): void
     out('  keygen [--force]              Buat master key (keys/master.key.hex)');
     out('  encode <in> -o <out> [opsi]   Encode 1 file atau 1 folder penuh');
     out('  machineid                     Tampilkan node-hash server ini (untuk --node)');
+    out('  canary [-o file]              Buat file canary untuk verifikasi key di sisi klien');
     out('  doctor                        Cek kesiapan lingkungan');
     out('  install                       Build & pasang ekstensi loader C');
     out('  uninstall [--yes] [--purge]   Lepas loader dari php.ini + hapus perintah dygo');
