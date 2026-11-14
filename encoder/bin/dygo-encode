@@ -1,0 +1,114 @@
+#!/usr/bin/env php
+<?php
+/**
+ * DYGO CLI Encoder
+ *
+ * Contoh:
+ *   bin/dygo-encode src/app.php -o dist/app.php
+ *   bin/dygo-encode src/ -o dist/ --domain example.com --domain "*.example.com" --expire 2026-12-31
+ *   bin/dygo-encode src/ -o dist/ --rename-vars
+ */
+
+require_once __DIR__ . '/../src/Encoder.php';
+
+use DYGO\Codec;
+use DYGO\Encoder;
+
+function out(string $s): void { fwrite(STDOUT, $s . "\n"); }
+function err(string $s): void { fwrite(STDERR, $s . "\n"); }
+
+$argvv = $argv;
+array_shift($argvv);
+
+$input = null;
+$output = null;
+$domains = [];
+$expire = 0;
+$renameVars = false;
+$keyFile = getenv('DYGO_KEY_FILE') ?: (__DIR__ . '/../../keys/master.key.hex');
+
+for ($i = 0; $i < count($argvv); $i++) {
+    $a = $argvv[$i];
+    switch ($a) {
+        case '-o': case '--out':
+            $output = $argvv[++$i] ?? null; break;
+        case '--domain':
+            $domains[] = $argvv[++$i] ?? ''; break;
+        case '--expire':
+            $d = $argvv[++$i] ?? '';
+            $ts = strtotime($d);
+            if ($ts === false) { err("Tanggal --expire tidak valid: {$d}"); exit(1); }
+            $expire = $ts; break;
+        case '--rename-vars':
+            $renameVars = true; break;
+        case '--key':
+            $keyFile = $argvv[++$i] ?? $keyFile; break;
+        case '-h': case '--help':
+            printHelp(); exit(0);
+        default:
+            if ($input === null && $a[0] !== '-') { $input = $a; }
+            else { err("Argumen tidak dikenal: {$a}"); exit(1); }
+    }
+}
+
+if ($input === null || $output === null) {
+    printHelp();
+    exit(1);
+}
+
+try {
+    $masterKey = Codec::loadMasterKey($keyFile);
+} catch (\Throwable $e) {
+    err('ERROR: ' . $e->getMessage());
+    err('Buat master key dengan: php -r "echo bin2hex(random_bytes(32));" > keys/master.key.hex');
+    exit(1);
+}
+
+$encoder = new Encoder($masterKey, [
+    'exp'        => $expire,
+    'domains'    => array_filter($domains),
+    'renameVars' => $renameVars,
+]);
+
+try {
+    if (is_dir($input)) {
+        $stats = $encoder->encodeDir($input, $output);
+        out("✓ Folder ter-encode: {$stats['encoded']} file PHP, {$stats['copied']} file lain disalin.");
+        out("  Runtime (dygo-runtime.php + dygo-codec.php) disertakan di: {$output}");
+    } elseif (is_file($input)) {
+        $encoder->encodeFile($input, $output);
+        out("✓ File ter-encode: {$output}");
+    } else {
+        err("Input tidak ditemukan: {$input}");
+        exit(1);
+    }
+} catch (\Throwable $e) {
+    err('ERROR: ' . $e->getMessage());
+    exit(1);
+}
+
+if ($expire)        { out('  Expiry  : ' . date('Y-m-d', $expire)); }
+if ($domains)       { out('  Domain  : ' . implode(', ', array_filter($domains))); }
+out('  Obfusc. : komentar/whitespace' . ($renameVars ? ' + rename variabel' : ''));
+
+function printHelp(): void
+{
+    out(<<<TXT
+DYGO Encoder — proteksi source PHP (AES-256 + HMAC, ala ionCube)
+
+Pemakaian:
+  dygo-encode <file|folder> -o <output> [opsi]
+
+Opsi:
+  -o, --out <path>     File/folder tujuan (wajib)
+  --domain <host>      Kunci ke domain (boleh berkali-kali; dukung *.domain.com)
+  --expire <tanggal>   Kedaluwarsa, mis. 2026-12-31 atau "+30 days"
+  --rename-vars        Aktifkan rename variabel lokal (hati-hati: compact/extract)
+  --key <file.hex>     Lokasi master key (default: keys/master.key.hex)
+  -h, --help           Bantuan ini
+
+Catatan:
+  Hasil encode jalan otomatis via ekstensi loader C (bila terpasang) ATAU via
+  dygo-runtime.php yang ikut disalin saat encode folder.
+TXT);
+}

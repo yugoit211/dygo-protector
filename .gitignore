@@ -1,0 +1,38 @@
+# Rahasia — JANGAN commit
+keys/master.key.hex
+**/dygo.key
+
+# Artefak build ekstensi C
+loader/.libs/
+loader/build/
+loader/modules/
+loader/autom4te.cache/
+loader/*.lo
+loader/*.la
+loader/*.o
+loader/.deps
+loader/Makefile*
+loader/config.h*
+loader/config.nice
+loader/configure*
+loader/aclocal.m4
+loader/libtool
+loader/run-tests.php
+loader/*.so
+
+# Output encode demo
+dist/dygo.key
+dist/run-test.php
+
+# Biner loader hasil CI (mengandung master key tertanam) — jangan commit
+loader/prebuilt/**/*.so
+loader/prebuilt/**/*.dll
+
+# macOS
+.DS_Store
+
+# Artefak build tambahan (phpize)
+loader/config.log
+loader/config.status
+loader/config.nice
+loader/*.dep

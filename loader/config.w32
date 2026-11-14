@@ -1,0 +1,7 @@
+// DYGO Loader — build config (Windows)
+ARG_ENABLE("dygo_loader", "enable DYGO Loader", "no");
+
+if (PHP_DYGO_LOADER != "no") {
+    EXTENSION("dygo_loader", "dygo_loader.c dygo_crypto.c");
+    AC_DEFINE("HAVE_DYGO_LOADER", 1, "DYGO Loader enabled");
+}

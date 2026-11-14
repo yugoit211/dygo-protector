@@ -1,0 +1,239 @@
+#!/usr/bin/env php
+<?php
+/**
+ * DYGO — CLI terpadu untuk proteksi source PHP (gaya ionCube).
+ *
+ *   dygo keygen                  Buat master key (keys/master.key.hex)
+ *   dygo machineid               Tampilkan node-hash server ini (untuk --node)
+ *   dygo encode <in> -o <out>    Encode file / folder
+ *   dygo doctor                  Cek lingkungan (php, phpize, loader, key)
+ *   dygo install                 Build & pasang ekstensi loader C
+ *   dygo version | help
+ */
+
+define('DYGO_HOME', dirname(__DIR__));
+require_once DYGO_HOME . '/encoder/src/Encoder.php';
+
+use DYGO\Codec;
+use DYGO\Encoder;
+
+const C_RESET = "\033[0m", C_BOLD = "\033[1m", C_GREEN = "\033[32m",
+      C_RED = "\033[31m", C_YELLOW = "\033[33m", C_CYAN = "\033[36m", C_DIM = "\033[2m";
+
+function supportsColor(): bool { return function_exists('posix_isatty') ? @posix_isatty(STDOUT) : (getenv('TERM') !== false); }
+function c(string $code, string $s): string { return supportsColor() ? $code . $s . C_RESET : $s; }
+function out(string $s = ''): void { fwrite(STDOUT, $s . "\n"); }
+function err(string $s): void { fwrite(STDERR, c(C_RED, $s) . "\n"); }
+function ok(string $s): void { out(c(C_GREEN, '✓ ') . $s); }
+function info(string $s): void { out(c(C_CYAN, 'ℹ ') . $s); }
+
+$keyFile = getenv('DYGO_KEY_FILE') ?: (DYGO_HOME . '/keys/master.key.hex');
+
+$argvv = $argv;
+array_shift($argvv);
+$cmd = array_shift($argvv) ?? 'help';
+
+try {
+    switch ($cmd) {
+        case 'keygen':     cmd_keygen($argvv, $keyFile); break;
+        case 'machineid':  cmd_machineid(); break;
+        case 'encode':     cmd_encode($argvv, $keyFile); break;
+        case 'doctor':     cmd_doctor($keyFile); break;
+        case 'install':    cmd_install($argvv); break;
+        case 'version': case '--version': case '-V':
+            out('DYGO ' . dygo_version()); break;
+        case 'help': case '--help': case '-h': default:
+            cmd_help(); break;
+    }
+} catch (\Throwable $e) {
+    err('ERROR: ' . $e->getMessage());
+    exit(1);
+}
+
+/* ---------------- commands ---------------- */
+
+function dygo_version(): string { return '1.0.0'; }
+
+function cmd_keygen(array $args, string $keyFile): void
+{
+    $force = in_array('--force', $args, true) || in_array('-f', $args, true);
+    if (is_file($keyFile) && !$force) {
+        err("Master key sudah ada: {$keyFile}");
+        err('Pakai --force untuk menimpa (AWAS: file lama yang sudah di-encode tak bisa dibuka lagi).');
+        exit(1);
+    }
+    if (!is_dir(dirname($keyFile))) { mkdir(dirname($keyFile), 0700, true); }
+    $hex = bin2hex(random_bytes(32));
+    file_put_contents($keyFile, $hex);
+    @chmod($keyFile, 0600);
+    ok("Master key dibuat: {$keyFile}");
+    out();
+    info('Salin nilai ini ke loader C (loader/php_dygo_loader.h → DYGO_MASTER_KEY_HEX),');
+    info('atau cukup jalankan: ' . c(C_BOLD, 'dygo install') . ' (otomatis memakai key ini).');
+    out();
+    out(c(C_DIM, $hex));
+}
+
+function cmd_machineid(): void
+{
+    $id   = Codec::machineId();
+    $hash = Codec::machineIdHash();
+    if ($hash === '') {
+        err('Tidak bisa menentukan machine-id di server ini.');
+        exit(1);
+    }
+    out(c(C_BOLD, 'Machine-id mentah : ') . ($id ?: '(tersembunyi)'));
+    out(c(C_BOLD, 'Node hash         : ') . c(C_GREEN, $hash));
+    out();
+    info('Pakai node hash di atas saat encode agar kode HANYA jalan di server ini:');
+    out('  dygo encode app/ -o dist/ --node ' . $hash);
+}
+
+function cmd_encode(array $args, string $keyFile): void
+{
+    $input = null; $output = null;
+    $domains = []; $nodes = []; $expire = 0; $renameVars = false;
+
+    for ($i = 0; $i < count($args); $i++) {
+        $a = $args[$i];
+        switch ($a) {
+            case '-o': case '--out':     $output = $args[++$i] ?? null; break;
+            case '--domain':             $domains[] = $args[++$i] ?? ''; break;
+            case '--node':               $nodes[] = $args[++$i] ?? ''; break;
+            case '--expire':
+                $ts = strtotime((string)($args[++$i] ?? ''));
+                if ($ts === false) { throw new \RuntimeException('Tanggal --expire tidak valid.'); }
+                $expire = $ts; break;
+            case '--rename-vars':        $renameVars = true; break;
+            case '--key':                $keyFile = $args[++$i] ?? $keyFile; break;
+            default:
+                if ($input === null && ($a === '' || $a[0] !== '-')) { $input = $a; }
+                else { throw new \RuntimeException("Argumen tidak dikenal: {$a}"); }
+        }
+    }
+
+    if ($input === null || $output === null) {
+        err('Pemakaian: dygo encode <file|folder> -o <output> [--domain h] [--node hash] [--expire tgl] [--rename-vars]');
+        exit(1);
+    }
+
+    try {
+        $masterKey = Codec::loadMasterKey($keyFile);
+    } catch (\Throwable $e) {
+        err($e->getMessage());
+        err('Buat dulu master key: ' . c(C_BOLD, 'dygo keygen'));
+        exit(1);
+    }
+
+    $encoder = new Encoder($masterKey, [
+        'exp'        => $expire,
+        'domains'    => array_filter($domains),
+        'nodes'      => array_filter($nodes),
+        'renameVars' => $renameVars,
+    ]);
+
+    if (is_dir($input)) {
+        $stats = $encoder->encodeDir($input, $output);
+        ok("Folder ter-encode: {$stats['encoded']} file PHP, {$stats['copied']} file lain disalin → {$output}");
+        info('Runtime fallback (dygo-runtime.php + dygo-codec.php) disertakan di folder output.');
+    } elseif (is_file($input)) {
+        $encoder->encodeFile($input, $output);
+        ok("File ter-encode → {$output}");
+    } else {
+        throw new \RuntimeException("Input tidak ditemukan: {$input}");
+    }
+
+    if ($expire)  { info('Expiry  : ' . date('Y-m-d', $expire)); }
+    if ($domains) { info('Domain  : ' . implode(', ', array_filter($domains))); }
+    if ($nodes)   { info('Node    : ' . count(array_filter($nodes)) . ' server diizinkan'); }
+    info('Obfusc. : komentar/whitespace' . ($renameVars ? ' + rename variabel' : ''));
+}
+
+function cmd_doctor(string $keyFile): void
+{
+    out(c(C_BOLD, 'DYGO Doctor'));
+    out(str_repeat('-', 40));
+
+    // PHP
+    ok('PHP ' . PHP_VERSION . ' (' . PHP_OS_FAMILY . ')');
+
+    // ekstensi wajib
+    foreach (['openssl', 'hash', 'tokenizer'] as $ext) {
+        extension_loaded($ext) ? ok("ekstensi {$ext}") : err("ekstensi {$ext} TIDAK ada (wajib untuk encoder)");
+    }
+    extension_loaded('zip') ? ok('ekstensi zip (untuk Web UI)') : out(c(C_YELLOW, '• zip belum ada (hanya perlu untuk Web UI)'));
+
+    // master key
+    if (is_file($keyFile) && preg_match('/^[0-9a-f]{64}$/i', trim((string)@file_get_contents($keyFile)))) {
+        ok("master key: {$keyFile}");
+    } else {
+        err("master key belum ada/valid: {$keyFile}  →  jalankan: dygo keygen");
+    }
+
+    // loader C
+    if (extension_loaded('dygo_loader')) {
+        ok('loader C (dygo_loader) AKTIF di PHP ini');
+    } else {
+        out(c(C_YELLOW, '• loader C belum aktif di PHP CLI ini (pakai fallback dygo-runtime.php, atau jalankan: dygo install)'));
+    }
+
+    // phpize (untuk build)
+    $phpize = trim((string) @shell_exec((PHP_OS_FAMILY === 'Windows' ? 'where' : 'command -v') . ' phpize 2>' . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null')));
+    $phpize !== '' ? ok("phpize tersedia: {$phpize}") : out(c(C_YELLOW, '• phpize tidak ada (perlu paket php-dev untuk build loader C)'));
+
+    // machine id
+    $h = Codec::machineIdHash();
+    $h !== '' ? ok('machine-id terdeteksi (node-lock bisa dipakai)') : out(c(C_YELLOW, '• machine-id tak terdeteksi (node-lock tidak akan berfungsi di sini)'));
+
+    out(str_repeat('-', 40));
+    info('Selesai.');
+}
+
+function cmd_install(array $args): void
+{
+    if (PHP_OS_FAMILY === 'Windows') {
+        out('Windows: jalankan installer PowerShell:');
+        out('  ' . c(C_BOLD, 'powershell -ExecutionPolicy Bypass -File install.ps1'));
+        out('Lihat panduan lengkap: docs/INSTALL.md');
+        return;
+    }
+    $sh = DYGO_HOME . '/install.sh';
+    if (!is_file($sh)) { throw new \RuntimeException('install.sh tidak ditemukan.'); }
+    info('Menjalankan install.sh ...');
+    $ret = 0;
+    passthru('sh ' . escapeshellarg($sh), $ret);
+    exit($ret);
+}
+
+function cmd_help(): void
+{
+    $b = fn($s) => c(C_BOLD, $s);
+    out(c(C_BOLD . C_CYAN, 'DYGO') . ' — PHP Source Protector (gaya ionCube)  v' . dygo_version());
+    out();
+    out($b('PEMAKAIAN'));
+    out('  dygo <perintah> [opsi]');
+    out();
+    out($b('PERINTAH'));
+    out('  keygen [--force]              Buat master key (keys/master.key.hex)');
+    out('  encode <in> -o <out> [opsi]   Encode 1 file atau 1 folder penuh');
+    out('  machineid                     Tampilkan node-hash server ini (untuk --node)');
+    out('  doctor                        Cek kesiapan lingkungan');
+    out('  install                       Build & pasang ekstensi loader C');
+    out('  version | help');
+    out();
+    out($b('OPSI encode'));
+    out('  -o, --out <path>              Tujuan (wajib)');
+    out('  --domain <host>               Kunci domain (boleh berulang; dukung *.domain.com)');
+    out('  --node <hash>                 Kunci ke server tertentu (dari: dygo machineid)');
+    out('  --expire <tgl>                Kedaluwarsa, mis. 2027-12-31 atau "+30 days"');
+    out('  --rename-vars                 Obfuscate nama variabel lokal');
+    out('  --key <file.hex>              Master key alternatif');
+    out();
+    out($b('CONTOH'));
+    out('  dygo keygen');
+    out('  dygo encode app.php -o dist/app.php');
+    out('  dygo encode src/ -o dist/ --domain example.com --expire 2027-12-31');
+    out('  dygo encode src/ -o dist/ --node $(ssh server dygo machineid | ...)');
+    out();
+    out(c(C_DIM, 'Panduan instalasi lengkap: docs/INSTALL.md'));
+}

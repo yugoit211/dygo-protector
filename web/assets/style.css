@@ -1,0 +1,52 @@
+:root {
+    --bg: #0f1420;
+    --card: #1a2233;
+    --fg: #e6ebf5;
+    --muted: #8b97ad;
+    --accent: #4f8cff;
+    --accent-2: #6ad0a8;
+    --err: #ff6b6b;
+    --line: #2a3650;
+    --radius: 14px;
+}
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+        --bg: #eef2f8; --card: #ffffff; --fg: #15202b;
+        --muted: #5a6b84; --line: #dfe6f0;
+    }
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px;
+}
+.card {
+    width: 100%; max-width: 560px; background: var(--card);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 28px; box-shadow: 0 10px 40px rgba(0,0,0,.25);
+}
+h1 { margin: 0 0 4px; font-size: 1.6rem; }
+.sub { margin: 0 0 20px; color: var(--muted); }
+.field { display: block; margin-bottom: 16px; }
+.field > span { display: block; margin-bottom: 6px; font-weight: 600; }
+.field small, .check small { font-weight: 400; color: var(--muted); }
+input[type=text], input[type=date], input[type=file] {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+}
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 20px; }
+.check input { margin-top: 4px; }
+button {
+    width: 100%; padding: 12px; border: 0; border-radius: 10px; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #04121f; font-weight: 700; font-size: 1rem;
+}
+button:disabled { opacity: .5; cursor: not-allowed; }
+.alert { padding: 12px 14px; border-radius: 10px; margin-bottom: 18px; font-size: .92rem; }
+.alert.err { background: rgba(255,107,107,.12); border: 1px solid var(--err); color: var(--err); }
+code { background: rgba(127,127,127,.18); padding: 1px 6px; border-radius: 6px; font-size: .88em; }
+.help { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); }
+.help summary { cursor: pointer; font-weight: 600; color: var(--fg); }
+.help ol { margin: 10px 0 0; padding-left: 20px; }
+.help li { margin-bottom: 6px; }
