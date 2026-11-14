@@ -351,13 +351,23 @@ encoder. Pastikan key sama dan file tidak diedit.
 
 ## 11. Uninstall
 
-Linux/macOS:
+Cara termudah (lintas-OS) — lewat CLI:
+
 ```bash
-sh uninstall.sh            # atau manual:
-# 1) hapus baris 'extension=dygo_loader.so' dari php.ini
-# 2) hapus <extension_dir>/dygo_loader.so
-# 3) restart php-fpm/apache
+dygo uninstall           # lepas loader dari php.ini + hapus .so/.dll + hapus perintah dygo
+dygo uninstall --yes     # tanpa tanya konfirmasi
+dygo uninstall --purge   # + hapus folder ~/.dygo (AWAS: master key ikut terhapus!)
+dygo uninstall --purge --keep-key   # purge tapi cadangkan master key dulu
 ```
 
-Windows: hapus baris `extension=php_dygo_loader` dari `php.ini`, hapus
-`ext\php_dygo_loader.dll`, restart layanan web.
+`dygo uninstall` menampilkan rencana lebih dulu dan meminta konfirmasi. Secara
+default **folder `~/.dygo` + master key dipertahankan** (hanya loader & perintah
+yang dilepas). Jika file berada di lokasi yang perlu hak akses, perintah akan
+menyebutkan path-nya agar Anda hapus dengan `sudo`.
+
+Setelah uninstall loader, **restart php-fpm/Apache** agar `php.ini` terbaca ulang.
+
+Manual (bila perlu): hapus baris `extension=dygo_loader.so`
+(Windows: `extension=php_dygo_loader`) dari `php.ini`, hapus
+`<extension_dir>/dygo_loader.so` (atau `php_dygo_loader.dll`), lalu restart layanan.
+Di Unix tersedia juga `sh uninstall.sh` (khusus melepas loader C).

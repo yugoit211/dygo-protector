@@ -68,6 +68,7 @@ php bin/dygo keygen                 # 1. buat master key (sekali)
 php bin/dygo install                # 2. build & pasang loader C (Linux/Mac)
 php bin/dygo encode src/ -o dist/   # 3. encode kode Anda
 php bin/dygo doctor                 # cek kesiapan lingkungan kapan saja
+php bin/dygo uninstall              # lepas loader + hapus perintah (rapi, lintas-OS)
 ```
 
 ### 1. Master key (sekali)
