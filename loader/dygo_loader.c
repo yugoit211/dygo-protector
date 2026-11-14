@@ -291,6 +291,24 @@ static zend_op_array *dygo_compile_file(zend_file_handle *file_handle, int type)
         return dygo_orig_compile_file(file_handle, type);
     }
 
+    /* Deteksi presisi: marker DYGO hanya sah bila TEPAT didahului oleh
+       "__halt_compiler();" (abaikan whitespace). Ini mencegah false-positive
+       ketika string "DYGO0001" kebetulan muncul sebagai literal di dalam kode
+       PHP biasa (mis. source DYGO sendiri). File seperti itu diteruskan apa
+       adanya ke compiler asli. */
+    {
+        static const char HC[] = "__halt_compiler();";
+        const size_t HCLEN = sizeof(HC) - 1;
+        char *p = marker;
+        while (p > raw && (p[-1] == '\n' || p[-1] == '\r' || p[-1] == '\t' || p[-1] == ' ')) {
+            p--;
+        }
+        if ((size_t)(p - raw) < HCLEN || memcmp(p - HCLEN, HC, HCLEN) != 0) {
+            efree(raw);
+            return dygo_orig_compile_file(file_handle, type);
+        }
+    }
+
     const char *b64 = marker + DYGO_MAGIC_LEN;
     size_t b64_len = (raw + raw_len) - b64;
 
