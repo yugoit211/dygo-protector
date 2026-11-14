@@ -39,6 +39,7 @@ try {
     switch ($cmd) {
         case 'machineid':  cmd_machineid(); break;
         case 'doctor':     cmd_doctor(); break;
+        case 'setkey':     cmd_setkey($argvv); break;
         case 'install':    cmd_install($argvv); break;
         case 'uninstall':  cmd_uninstall($argvv); break;
         case 'version': case '--version': case '-V':
@@ -78,6 +79,37 @@ function cmd_machineid(): void
     info('kode agar HANYA bisa jalan di server ini (node-lock).');
 }
 
+function cmd_setkey(array $args): void
+{
+    $home = getenv('HOME') ?: (getenv('USERPROFILE') ?: '');
+    if ($home === '') { throw new \RuntimeException('HOME tidak diketahui.'); }
+    $dir  = $home . '/.dygo-client';
+    $file = $dir . '/dygo.key';
+
+    // sumber key: argumen pertama, env DYGO_KEY, atau prompt interaktif
+    $key = $args[0] ?? (getenv('DYGO_KEY') ?: '');
+    if ($key === '') {
+        $tty = function_exists('posix_isatty') ? @posix_isatty(STDIN) : false;
+        if ($tty) {
+            fwrite(STDOUT, c(C_BOLD, 'Tempel master key dari vendor (64 hex): '));
+            $key = trim((string) fgets(STDIN));
+        }
+    }
+    $key = preg_replace('/\s+/', '', (string) $key);
+    if (!preg_match('/^[0-9a-f]{64}$/i', $key)) {
+        err('Master key harus 64 karakter hex. Dibatalkan.');
+        exit(1);
+    }
+    if (!is_dir($dir)) { @mkdir($dir, 0700, true); }
+    if (@file_put_contents($file, $key . "\n") === false) {
+        throw new \RuntimeException('Gagal menulis ' . $file);
+    }
+    @chmod($file, 0600);
+    ok('Master key tersimpan: ' . $file);
+    info('Loader kini bisa menjalankan file ter-encode dari vendor.');
+    info('Untuk web (php-fpm/apache): restart layanannya.');
+}
+
 function cmd_doctor(): void
 {
     out(c(C_BOLD, 'DYGO Doctor — Client Edition (hanya-baca)'));
@@ -103,6 +135,18 @@ function cmd_doctor(): void
     $bin = find_bundled_binary();
     $bin ? ok('biner loader tersedia di paket: ' . basename($bin))
          : out(c(C_YELLOW, '• biner loader prebuilt tidak ditemukan di paket untuk OS ini'));
+
+    // master key terpasang?
+    $home = getenv('HOME') ?: (getenv('USERPROFILE') ?: '');
+    $keyFile = $home !== '' ? $home . '/.dygo-client/dygo.key' : '';
+    $envKey  = getenv('DYGO_KEY') ?: (getenv('DYGO_MASTER_KEY') ?: '');
+    if ($envKey !== '') {
+        ok('master key dari environment (DYGO_KEY)');
+    } elseif ($keyFile && is_file($keyFile) && preg_match('/^[0-9a-f]{64}$/i', trim((string) @file_get_contents($keyFile)))) {
+        ok('master key terpasang: ' . $keyFile);
+    } else {
+        out(c(C_YELLOW, '• master key BELUM ada. Pasang: dygo setkey'));
+    }
 
     // machine id
     $h = Codec::machineIdHash();
@@ -325,6 +369,7 @@ function cmd_help(): void
     out();
     out($b('PERINTAH'));
     out('  install [--yes]      Pasang biner loader prebuilt ke PHP (aktif di php.ini)');
+    out('  setkey [hex]         Pasang/ubah master key dari vendor (interaktif bila tanpa argumen)');
     out('  doctor               Cek kesiapan lingkungan & status loader');
     out('  machineid            Tampilkan node-hash server ini (kirim ke vendor untuk node-lock)');
     out('  uninstall [--yes]    Lepas loader dari php.ini + hapus perintah dygo');
