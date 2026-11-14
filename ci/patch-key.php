@@ -49,8 +49,11 @@ if ($count !== 1) {
 file_put_contents($header, $patched);
 
 // Tulis juga ke keys/master.key.hex agar langkah uji di CI bisa meng-encode
-// dengan key yang sama (hanya di runner CI; tidak dikomit).
-@file_put_contents(__DIR__ . '/../keys/master.key.hex', $key);
+// dengan key yang sama (hanya di runner CI; tidak dikomit). Folder keys/
+// ter-gitignore sehingga tidak ada di checkout → buat dulu.
+$keyDir = __DIR__ . '/../keys';
+if (!is_dir($keyDir)) { @mkdir($keyDir, 0777, true); }
+@file_put_contents($keyDir . '/master.key.hex', $key);
 
 fwrite(STDERR, $ephemeral
     ? "[warn] DYGO_MASTER_KEY tidak diset — memakai key EPHEMERAL (uji kompilasi saja).\n"

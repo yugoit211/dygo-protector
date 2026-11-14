@@ -241,17 +241,14 @@ static void dygo_current_host(char *out, size_t cap) {
 static zend_op_array *dygo_compile_source(const char *src, size_t len, const char *filename) {
     zend_op_array *oa;
 #if PHP_VERSION_ID >= 80200
+    /* PHP 8.2+: zend_compile_string(zend_string*, const char*, zend_compile_position) */
     zend_string *code = zend_string_init(src, len, 0);
-#  if PHP_VERSION_ID >= 80300
     oa = zend_compile_string(code, filename, ZEND_COMPILE_POSITION_AT_SHEBANG);
-#  else
-    oa = zend_compile_string(code, filename);
-#  endif
     zend_string_release(code);
-#else /* PHP 8.1 */
+#else /* PHP 8.0 - 8.1: zend_compile_string(zval*, const char*) */
     zval code;
     ZVAL_STRINGL(&code, src, len);
-    oa = compile_string(&code, (char *) filename);
+    oa = zend_compile_string(&code, filename);
     zval_ptr_dtor(&code);
 #endif
     return oa;
