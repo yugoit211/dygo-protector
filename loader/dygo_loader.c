@@ -245,7 +245,12 @@ static zend_op_array *dygo_compile_source(const char *src, size_t len, const cha
     zend_string *code = zend_string_init(src, len, 0);
     oa = zend_compile_string(code, filename, ZEND_COMPILE_POSITION_AT_SHEBANG);
     zend_string_release(code);
-#else /* PHP 8.0 - 8.1: zend_compile_string(zval*, const char*) */
+#elif PHP_VERSION_ID >= 80100
+    /* PHP 8.1: zend_compile_string(zend_string*, const char*) */
+    zend_string *code = zend_string_init(src, len, 0);
+    oa = zend_compile_string(code, filename);
+    zend_string_release(code);
+#else /* PHP 8.0: zend_compile_string(zval*, const char*) */
     zval code;
     ZVAL_STRINGL(&code, src, len);
     oa = zend_compile_string(&code, filename);
