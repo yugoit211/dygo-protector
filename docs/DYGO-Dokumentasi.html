@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>DYGO — Dokumentasi Lengkap</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --soft:#f1f5f9;
+    --brand:#4f46e5; --brand2:#0ea5e9; --accent:#0d9488;
+    --code-bg:#0f172a; --code-fg:#e2e8f0; --warn:#b45309; --warnbg:#fffbeb; --okbg:#ecfdf5; --ok:#047857;
+  }
+  @page{ size:A4; margin:20mm 16mm 18mm 16mm; }
+  @page:first{ margin:0; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font:11pt/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  h1,h2,h3,h4{ line-height:1.2; color:var(--ink); }
+  h2{ font-size:19pt; margin:0 0 2mm; padding-bottom:2mm; border-bottom:3px solid var(--brand); }
+  h3{ font-size:13.5pt; margin:7mm 0 2mm; color:var(--brand); }
+  h4{ font-size:11.5pt; margin:5mm 0 1mm; color:var(--accent); }
+  p{ margin:0 0 2.6mm; }
+  code{ font-family:"SF Mono",Menlo,Consolas,monospace; font-size:9.3pt;
+    background:var(--soft); padding:1px 5px; border-radius:4px; color:#be185d; }
+  pre{ background:var(--code-bg); color:var(--code-fg); border-radius:7px;
+    padding:4mm 5mm; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:8.8pt;
+    line-height:1.5; overflow:hidden; white-space:pre-wrap; word-break:break-word; margin:0 0 3mm; }
+  pre code{ background:none; color:inherit; padding:0; }
+  pre .c{ color:#94a3b8; }          /* comment */
+  pre .k{ color:#7dd3fc; }          /* keyword/cmd */
+  pre .s{ color:#86efac; }          /* string/output */
+  a{ color:var(--brand); text-decoration:none; }
+
+  table{ width:100%; border-collapse:collapse; margin:0 0 4mm; font-size:9.6pt; }
+  th,td{ border:1px solid var(--line); padding:2mm 2.6mm; text-align:left; vertical-align:top; }
+  th{ background:var(--soft); font-weight:700; }
+  tbody tr:nth-child(even){ background:#fafafa; }
+
+  .lead{ color:var(--muted); font-size:11.5pt; }
+  .tag{ display:inline-block; font-size:8pt; font-weight:700; letter-spacing:.04em;
+    padding:1px 7px; border-radius:999px; text-transform:uppercase; vertical-align:middle; }
+  .tag.srv{ background:#eef2ff; color:#4338ca; }
+  .tag.cli{ background:#ecfeff; color:#0e7490; }
+
+  .note,.warn,.ok{ border-radius:7px; padding:3mm 4mm; margin:0 0 3.5mm; font-size:9.8pt; }
+  .note{ background:var(--soft); border-left:4px solid var(--brand2); }
+  .warn{ background:var(--warnbg); border-left:4px solid var(--warn); color:#7c2d12; }
+  .ok{ background:var(--okbg); border-left:4px solid var(--ok); color:#065f46; }
+  .note b,.warn b,.ok b{ color:inherit; }
+
+  .section{ page-break-before:always; }
+  .avoidbreak{ page-break-inside:avoid; }
+  ul,ol{ margin:0 0 3mm; padding-left:6mm; }
+  li{ margin:0 0 1.2mm; }
+  small{ color:var(--muted); }
+
+  /* ---------- Cover ---------- */
+  .cover{ height:297mm; width:210mm; page-break-after:always; position:relative;
+    background:linear-gradient(150deg,#312e81 0%,#4f46e5 45%,#0ea5e9 100%); color:#fff;
+    padding:34mm 24mm; display:flex; flex-direction:column; }
+  .cover .logo{ display:flex; align-items:center; gap:10px; font-weight:800; font-size:15pt; letter-spacing:.5px; }
+  .cover .logo .mk{ width:34px; height:34px; border-radius:9px; background:rgba(255,255,255,.18);
+    display:grid; place-items:center; font-size:17pt; }
+  .cover h1{ font-size:42pt; color:#fff; margin:70mm 0 0; letter-spacing:-.5px; }
+  .cover .sub{ font-size:16pt; color:#dbeafe; margin-top:4mm; font-weight:500; }
+  .cover .rule{ width:60mm; height:4px; background:#38bdf8; margin:8mm 0; border-radius:2px; }
+  .cover .meta{ margin-top:auto; font-size:10.5pt; color:#e0e7ff; }
+  .cover .meta b{ color:#fff; }
+  .cover .chips{ margin-top:5mm; display:flex; gap:8px; }
+  .cover .chip{ background:rgba(255,255,255,.16); padding:3px 11px; border-radius:999px; font-size:9.5pt; font-weight:600; }
+
+  /* ---------- TOC ---------- */
+  .toc{ page-break-after:always; }
+  .toc h2{ border-color:var(--brand); }
+  .toc ol{ list-style:none; padding:0; counter-reset:toc; font-size:11pt; }
+  .toc ol li{ counter-increment:toc; display:flex; align-items:baseline; gap:3mm;
+    padding:2.2mm 0; border-bottom:1px dotted var(--line); }
+  .toc ol li::before{ content:counter(toc,decimal-leading-zero); color:var(--brand); font-weight:800; font-variant-numeric:tabular-nums; }
+  .toc .sub{ color:var(--muted); font-size:9.5pt; margin-left:auto; }
+
+  .kbd{ font-size:8.6pt; background:#1e293b; color:#e2e8f0; padding:1px 6px; border-radius:4px; }
+  .two{ display:flex; gap:5mm; }
+  .two > div{ flex:1; }
+  .cardbox{ border:1px solid var(--line); border-radius:8px; padding:4mm; margin:0 0 3mm; }
+  .cardbox h4{ margin-top:0; }
+</style>
+</head>
+<body>
+
+<!-- ============== COVER ============== -->
+<section class="cover">
+  <div class="logo"><span class="mk">🔒</span> DYGO</div>
+  <h1>Dokumentasi<br>Lengkap</h1>
+  <div class="rule"></div>
+  <div class="sub">Sistem Proteksi Source Code PHP — gaya ionCube<br>Panduan Server (Vendor) &amp; Client</div>
+  <div class="chips">
+    <span class="chip">AES-256-CBC + HMAC-SHA256</span>
+    <span class="chip">Zend Loader (C)</span>
+  </div>
+  <div class="meta">
+    Versi 1.1 · 15 November 2026<br>
+    <b>github.com/yugoit211/dygo-protector</b> (Server) &nbsp;·&nbsp; <b>github.com/yugoit211/dygo-loader</b> (Client)
+  </div>
+</section>
+
+<!-- ============== TOC ============== -->
+<section class="toc">
+  <h2>Daftar Isi</h2>
+  <ol>
+    <li>Pendahuluan &amp; Konsep <span class="sub">Apa itu DYGO, cara kerja</span></li>
+    <li>Arsitektur &amp; Dua Edisi <span class="sub">Vendor vs Client</span></li>
+    <li>Server (Vendor) — Instalasi <span class="sub">Windows · Linux · macOS</span></li>
+    <li>Server — Membuat Master Key <span class="sub">keygen</span></li>
+    <li>Server — Memasang Loader C <span class="sub">install</span></li>
+    <li>Server — Meng-encode Kode <span class="sub">file · folder · opsi</span></li>
+    <li>Encode Folder Project Penuh <span class="sub">panduan mendetail langkah demi langkah</span></li>
+    <li>Server — Web UI <span class="sub">encode lewat browser</span></li>
+    <li>Client — Instalasi Satu Baris <span class="sub">curl · PowerShell</span></li>
+    <li>Client — Memasang Master Key <span class="sub">env · file</span></li>
+    <li>Client — Perintah &amp; Verifikasi <span class="sub">doctor · machineid</span></li>
+    <li>Alur Kerja Lengkap <span class="sub">vendor → client</span></li>
+    <li>Model Keamanan <span class="sub">yang dijamin &amp; tidak</span></li>
+    <li>Pemecahan Masalah <span class="sub">troubleshooting</span></li>
+    <li>Lampiran — Ringkasan Perintah <span class="sub">cheat sheet</span></li>
+  </ol>
+</section>
+
+<!-- ============== 1 ============== -->
+<section class="section">
+  <h2>1 · Pendahuluan &amp; Konsep</h2>
+  <p class="lead">DYGO adalah sistem proteksi source code PHP yang mengubah file <code>.php</code> Anda
+  menjadi bentuk terenkripsi yang tidak terbaca, lalu menjalankannya kembali secara transparan
+  lewat ekstensi loader — persis seperti <b>ionCube</b>.</p>
+
+  <h3>Apa yang dilakukan DYGO</h3>
+  <ul>
+    <li><b>Enkripsi</b> source PHP dengan AES-256-CBC, diverifikasi HMAC-SHA256 (anti-tamper).</li>
+    <li><b>Menjalankan</b> kembali kode terenkripsi tanpa pernah menulis plaintext ke disk — dekripsi terjadi di memori saat kompilasi.</li>
+    <li><b>Lisensi</b>: kunci domain, masa berlaku (expiry), dan node-lock (kunci ke server tertentu).</li>
+    <li><b>Obfuscation</b>: hapus komentar/spasi, opsi rename variabel.</li>
+  </ul>
+
+  <h3>Cara kerja singkat</h3>
+  <pre><span class="c">        encode (AES+HMAC)                 jalankan (loader)</span>
+  source.php  ───────────────►  file ter-encode  ───────────────►  output asli
+   (PHP asli)                   stub + payload                      (di memori)
+                                                 ├─ Ekstensi Loader C (hook zend_compile_file), ATAU
+                                                 └─ dygo-runtime.php (fallback PHP murni)</pre>
+
+  <p>File hasil encode berisi: <b>stub PHP</b> yang terbaca + <code>__halt_compiler();</code> +
+  penanda <code>DYGO0001</code> + payload base64. Loader mendeteksi penanda, mendekripsi payload di
+  memori, memverifikasi HMAC &amp; lisensi, lalu meng-compile source asli.</p>
+
+  <div class="note"><b>Prinsip kunci:</b> yang rahasia adalah <b>master key</b> (64 karakter hex / 32 byte).
+  Siapa pun yang memilikinya bisa mendekripsi. Loader dan file ter-encode harus memakai master key yang sama.</div>
+</section>
+
+<!-- ============== 2 ============== -->
+<section class="section">
+  <h2>2 · Arsitektur &amp; Dua Edisi</h2>
+  <p>Seperti ionCube yang memisahkan <i>Encoder</i> (pembuat) dan <i>Loader</i> (pembaca), DYGO
+  terbagi menjadi dua edisi dengan dua repository terpisah.</p>
+
+  <table class="avoidbreak">
+    <thead><tr><th style="width:24%">Edisi</th><th>Server / Vendor <span class="tag srv">penuh</span></th><th>Client <span class="tag cli">hanya-baca</span></th></tr></thead>
+    <tbody>
+      <tr><td><b>Repository</b></td><td>github.com/yugoit211/<b>dygo-protector</b></td><td>github.com/yugoit211/<b>dygo-loader</b></td></tr>
+      <tr><td><b>Perintah CLI</b></td><td><code>bin/dygo</code></td><td><code>bin/dygo</code> (client)</td></tr>
+      <tr><td><b>Bisa</b></td><td>keygen · <b>encode</b> · install · doctor · machineid</td><td>install · doctor · machineid · uninstall</td></tr>
+      <tr><td><b>Tidak bisa</b></td><td>—</td><td><b>keygen &amp; encode ditolak</b></td></tr>
+      <tr><td><b>Dipakai di</b></td><td>Mesin Anda (pengembang)</td><td>Server klien / pelanggan</td></tr>
+      <tr><td><b>Master key</b></td><td>Dibuat &amp; disimpan di sini</td><td>Dikirim vendor, dipasang runtime</td></tr>
+    </tbody>
+  </table>
+
+  <div class="ok"><b>Inti model:</b> Anda meng-encode produk di edisi Server, lalu klien cukup memasang
+  edisi Client (hanya-baca) untuk menjalankannya. Klien <b>tidak</b> bisa membuat enkripsi sendiri.</div>
+
+  <h3>Komponen proyek Server</h3>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td><code>bin/dygo</code></td><td>CLI terpadu (keygen, encode, install, doctor, machineid, uninstall)</td></tr>
+      <tr><td><code>encoder/</code></td><td>Kelas Encoder + Obfuscator</td></tr>
+      <tr><td><code>loader/</code></td><td>Ekstensi Zend (C) + kripto self-contained</td></tr>
+      <tr><td><code>runtime/</code></td><td>Loader PHP murni (fallback tanpa kompilasi)</td></tr>
+      <tr><td><code>web/</code></td><td>Web UI untuk encode lewat browser</td></tr>
+      <tr><td><code>shared/</code></td><td><code>dygo-codec.php</code> — format bersama</td></tr>
+      <tr><td><code>keys/</code></td><td><code>master.key.hex</code> — <b>RAHASIA, jangan sebar</b></td></tr>
+      <tr><td><code>bootstrap/</code></td><td>Installer satu-baris + <code>make-client.sh</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============== 3 ============== -->
+<section class="section">
+  <h2>3 · Server — Instalasi <span class="tag srv">vendor</span></h2>
+  <p>Prasyarat: <b>PHP 8.1+</b>. Untuk membangun loader C diperlukan paket <code>php-dev</code>
+  (menyediakan <code>phpize</code>).</p>
+
+  <h3>Instalasi satu baris (direkomendasikan)</h3>
+  <h4>Linux / macOS</h4>
+  <pre><span class="k">curl</span> -fsSL https://raw.githubusercontent.com/yugoit211/dygo-protector/master/bootstrap/dygo-install.sh | bash</pre>
+  <h4>Windows (PowerShell)</h4>
+  <pre><span class="k">irm</span> https://raw.githubusercontent.com/yugoit211/dygo-protector/master/bootstrap/dygo-install.ps1 | iex</pre>
+  <p>Opsi: tambah <code>| bash -s -- --with-loader</code> untuk langsung membangun loader C,
+  atau <code>--fallback-only</code> untuk tanpa kompilasi. Installer memasang DYGO ke
+  <code>~/.dygo</code> dan perintah <code>dygo</code> ke PATH.</p>
+
+  <h3>Instalasi manual (dari clone)</h3>
+  <pre><span class="k">git clone</span> https://github.com/yugoit211/dygo-protector.git
+<span class="k">cd</span> dygo-protector
+<span class="k">php</span> bin/dygo doctor        <span class="c"># cek kesiapan lingkungan</span></pre>
+
+  <h3>Prasyarat per sistem operasi</h3>
+  <table class="avoidbreak">
+    <thead><tr><th>OS</th><th>PHP + dev tools</th></tr></thead>
+    <tbody>
+      <tr><td><b>Ubuntu/Debian</b></td><td><code>sudo apt install php php-dev php-cli build-essential</code></td></tr>
+      <tr><td><b>macOS (Homebrew)</b></td><td><code>brew install php</code> (sudah termasuk <code>phpize</code>)</td></tr>
+      <tr><td><b>Windows</b></td><td>PHP dari windows.php.net. Loader C memakai DLL prebuilt atau fallback PHP murni.</td></tr>
+    </tbody>
+  </table>
+  <div class="note">Jalankan <code>php bin/dygo doctor</code> kapan saja untuk memeriksa: versi PHP, ekstensi
+  wajib, master key, status loader, ketersediaan <code>phpize</code>, dan deteksi machine-id.</div>
+</section>
+
+<!-- ============== 4 ============== -->
+<section class="section">
+  <h2>4 · Server — Membuat Master Key</h2>
+  <p>Master key adalah rahasia inti. Buat <b>sekali</b>, lalu jaga baik-baik.</p>
+  <pre><span class="k">php</span> bin/dygo keygen
+<span class="s">✓ Master key dibuat: keys/master.key.hex</span></pre>
+
+  <div class="warn"><b>PENTING:</b>
+    <ul style="margin-bottom:0">
+      <li>Simpan <code>keys/master.key.hex</code> dengan aman dan <b>backup</b>. Jika hilang, semua file yang sudah di-encode <b>tidak bisa dibuka lagi</b>.</li>
+      <li><b>Jangan</b> commit ke git / sebar ke publik (sudah masuk <code>.gitignore</code>).</li>
+      <li>Memakai <code>--force</code> menimpa key lama — file lama jadi tak terbaca. Hati-hati.</li>
+    </ul>
+  </div>
+
+  <h3>Node-lock: dapatkan machine-id server</h3>
+  <p>Untuk mengunci kode agar hanya jalan di server tertentu, minta klien menjalankan
+  <code>dygo machineid</code> di server mereka, lalu pakai hasilnya saat encode (<code>--node</code>).</p>
+  <pre><span class="k">php</span> bin/dygo machineid
+<span class="s">Node hash : 9f3c1a…(hash server)</span></pre>
+</section>
+
+<!-- ============== 5 ============== -->
+<section class="section">
+  <h2>5 · Server — Memasang Loader C</h2>
+  <p>Loader C memberi proteksi terkuat: file ter-encode jalan otomatis, tanpa file pendukung.
+  Langkah ini membangun loader dengan master key Anda tertanam di dalam biner.</p>
+
+  <h4>Linux / macOS</h4>
+  <pre><span class="k">php</span> bin/dygo install          <span class="c"># build + aktifkan di php.ini</span>
+<span class="c"># atau:</span>
+<span class="k">sh</span> install.sh
+<span class="k">sh</span> install.sh --fallback-only  <span class="c"># tanpa kompilasi (loader PHP murni)</span></pre>
+
+  <h4>Windows</h4>
+  <pre><span class="k">powershell</span> -ExecutionPolicy Bypass -File install.ps1 -FallbackOnly   <span class="c"># termudah</span>
+<span class="k">powershell</span> -ExecutionPolicy Bypass -File install.ps1               <span class="c"># pakai DLL prebuilt</span></pre>
+
+  <div class="ok"><b>Verifikasi:</b> <code>php bin/dygo doctor</code> harus menampilkan
+  <span style="color:#065f46">✓ loader C (dygo_loader) AKTIF</span>. Untuk web, restart php-fpm/apache
+  agar php.ini terbaca ulang.</div>
+
+  <h3>Melepas loader</h3>
+  <pre><span class="k">php</span> bin/dygo uninstall           <span class="c"># lepas loader + hapus perintah (master key aman)</span>
+<span class="k">php</span> bin/dygo uninstall --purge   <span class="c"># hapus total ~/.dygo (master key HILANG)</span></pre>
+</section>
+
+<!-- ============== 6 ============== -->
+<section class="section">
+  <h2>6 · Server — Meng-encode Kode</h2>
+  <p>Encode bisa <b>per file</b> atau <b>satu folder penuh</b> (rekursif). File <code>.php</code>
+  di-encode; file lain (CSS, JS, gambar, JSON, dll.) disalin apa adanya dengan struktur folder utuh.</p>
+
+  <h3>Encode satu file</h3>
+  <pre><span class="k">php</span> bin/dygo encode app.php -o dist/app.php</pre>
+
+  <h3>Encode satu folder</h3>
+  <pre><span class="k">php</span> bin/dygo encode src/ -o dist/</pre>
+  <p>Untuk folder dengan banyak file campur berbagai ekstensi, cukup arahkan ke foldernya —
+  encoder otomatis memilah <code>.php</code> untuk di-encode dan menyalin sisanya.</p>
+
+  <h3>Opsi lengkap</h3>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:28%">Opsi</th><th>Efek</th></tr></thead>
+    <tbody>
+      <tr><td><code>-o, --out &lt;path&gt;</code></td><td>Tujuan output (wajib)</td></tr>
+      <tr><td><code>--loader-only</code></td><td><b>1 file per PHP</b>, tanpa bundel fallback. Hasil paling ringkas; wajib loader C di server tujuan.</td></tr>
+      <tr><td><code>--exclude &lt;pola&gt;</code></td><td>File <code>.php</code> yang <b>tidak</b> di-encode (disalin apa adanya). Glob <code>*</code>,<code>?</code> cocok ke path &amp; nama file. Boleh berulang. Mis. <code>config/*.php</code></td></tr>
+      <tr><td><code>--domain &lt;host&gt;</code></td><td>Kunci domain. Dukung wildcard <code>*.example.com</code>. Boleh berulang.</td></tr>
+      <tr><td><code>--expire &lt;tgl&gt;</code></td><td>Kedaluwarsa, mis. <code>2027-12-31</code> atau <code>"+30 days"</code></td></tr>
+      <tr><td><code>--node &lt;hash&gt;</code></td><td>Kunci ke server tertentu (dari <code>dygo machineid</code>)</td></tr>
+      <tr><td><code>--rename-vars</code></td><td>Obfuscate nama variabel lokal</td></tr>
+      <tr><td><code>--key &lt;file.hex&gt;</code></td><td>Master key alternatif</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Contoh lengkap</h3>
+  <pre><span class="k">php</span> bin/dygo encode src/ -o dist/ \
+    --loader-only \
+    --exclude 'config/*.php' --exclude '*.conf.php' \
+    --domain example.com --domain '*.example.com' \
+    --expire 2027-12-31 \
+    --rename-vars
+<span class="s">✓ Folder ter-encode: 24 file PHP, 11 file lain disalin, 2 PHP dikecualikan → dist/</span></pre>
+
+  <h4>Mode <code>--loader-only</code> vs normal</h4>
+  <table class="avoidbreak">
+    <thead><tr><th></th><th>Normal (fallback)</th><th><code>--loader-only</code></th></tr></thead>
+    <tbody>
+      <tr><td>Hasil per 1 PHP</td><td>file + <code>dygo-runtime.php</code> + <code>dygo-codec.php</code> + README</td><td><b>1 file saja</b></td></tr>
+      <tr><td>Butuh loader C</td><td>Tidak (ada fallback)</td><td><b>Ya</b></td></tr>
+      <tr><td><code>dygo-codec.php</code> tersebar?</td><td>Ya</td><td><b>Tidak</b> (lebih aman)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============== 7 (BARU) ============== -->
+<section class="section">
+  <h2>7 · Encode Folder Project Penuh</h2>
+  <p class="lead">Untuk meng-encrypt satu folder project utuh yang berisi <b>banyak file PHP</b>
+  bercampur <b>banyak ekstensi lain</b> (CSS, JS, gambar, JSON, .env, dll.) — cukup satu perintah.
+  Encoder bekerja <b>rekursif</b>: setiap <code>.php</code> di-encrypt, file lain disalin apa adanya,
+  dan struktur folder dipertahankan persis.</p>
+
+  <h3>Perintah utama</h3>
+  <pre><span class="k">php</span> bin/dygo encode <span class="s">/path/ke/project</span> -o <span class="s">/path/ke/project-encrypted</span> --loader-only</pre>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td><code>/path/ke/project</code></td><td>Folder sumber (asli). Tidak diubah.</td></tr>
+      <tr><td><code>-o /path/ke/project-encrypted</code></td><td>Folder tujuan hasil encrypt (dibuat otomatis).</td></tr>
+      <tr><td><code>--loader-only</code></td><td>1 file per PHP, tanpa bundel fallback. Pakai ini bila server klien sudah punya loader C.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Apa yang terjadi pada tiap file</h3>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:34%">Tipe file</th><th>Perlakuan</th></tr></thead>
+    <tbody>
+      <tr><td><b>.php</b> (semua, termasuk subfolder)</td><td>Di-<b>encrypt</b> (AES-256 + HMAC)</td></tr>
+      <tr><td>.css .js .html .json .png .jpg .svg .env .txt …</td><td><b>Disalin apa adanya</b> (tidak diubah)</td></tr>
+      <tr><td>Struktur folder &amp; subfolder</td><td><b>Dipertahankan persis</b></td></tr>
+      <tr><td>.php yang cocok <code>--exclude</code></td><td>Disalin apa adanya (tidak di-encrypt)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Ilustrasi sebelum → sesudah</h3>
+  <pre><span class="c">project/                         project-encrypted/</span>
+  index.php            ──►         index.php            <span class="c">(ter-encrypt)</span>
+  app/Models/User.php  ──►         app/Models/User.php  <span class="c">(ter-encrypt)</span>
+  app/Core/Auth.php    ──►         app/Core/Auth.php    <span class="c">(ter-encrypt)</span>
+  public/css/app.css   ──►         public/css/app.css   <span class="c">(disalin)</span>
+  public/js/main.js    ──►         public/js/main.js    <span class="c">(disalin)</span>
+  public/img/logo.png  ──►         public/img/logo.png  <span class="c">(disalin)</span>
+  config/database.php  ──►         config/database.php  <span class="c">(ter-encrypt)</span>
+  .env                 ──►         .env                 <span class="c">(disalin)</span>
+  composer.json        ──►         composer.json        <span class="c">(disalin)</span></pre>
+  <pre><span class="s">✓ Folder ter-encode: 4 file PHP, 5 file lain disalin → /path/ke/project-encrypted</span></pre>
+
+  <h3>Mengecualikan file PHP tertentu (<code>--exclude</code>)</h3>
+  <p>Kadang ada <code>.php</code> yang <b>tidak</b> ingin di-encrypt (mis. file konfigurasi yang sering
+  diedit klien). Gunakan <code>--exclude</code> dengan pola glob — boleh diulang. Pola dicocokkan ke
+  <b>path relatif</b> dan <b>nama file</b>.</p>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:34%">Pola</th><th>Cocok dengan</th></tr></thead>
+    <tbody>
+      <tr><td><code>--exclude 'config.php'</code></td><td>File bernama <code>config.php</code> di mana pun</td></tr>
+      <tr><td><code>--exclude 'config/*.php'</code></td><td>Semua <code>.php</code> langsung di dalam folder <code>config/</code></td></tr>
+      <tr><td><code>--exclude '*.config.php'</code></td><td>Semua file berakhiran <code>.config.php</code></td></tr>
+      <tr><td><code>--exclude 'vendor/*'</code></td><td>Seluruh isi folder <code>vendor/</code> (library pihak ketiga)</td></tr>
+    </tbody>
+  </table>
+  <pre><span class="k">php</span> bin/dygo encode project/ -o project-enc/ --loader-only \
+    --exclude 'config/*.php' --exclude 'vendor/*'</pre>
+
+  <h3>Dengan proteksi lisensi (domain + expiry + node-lock)</h3>
+  <pre><span class="k">php</span> bin/dygo encode project/ -o project-enc/ --loader-only \
+    --domain example.com --domain '*.example.com' \
+    --expire 2027-12-31 \
+    --rename-vars</pre>
+  <p>Semua opsi di Bab 6 berlaku juga untuk encode folder. <code>--rename-vars</code> menambah obfuscation
+  nama variabel lokal di setiap file PHP.</p>
+
+  <h3>Langkah lengkap: dari encode sampai jalan di server klien</h3>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:8%">No</th><th>Langkah</th><th>Perintah</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Encode folder di mesin vendor</td><td><code>php bin/dygo encode project/ -o project-enc/ --loader-only</code></td></tr>
+      <tr><td>2</td><td>Kirim ke server klien <b>binary-safe</b></td><td><code>rsync -av project-enc/ root@server:/var/www/app/</code></td></tr>
+      <tr><td>3</td><td>Pastikan key klien cocok</td><td><code>dygo verify /var/www/app/index.php</code></td></tr>
+      <tr><td>4</td><td>Jalankan seperti biasa</td><td><code>php /var/www/app/index.php</code> (loader dekripsi di memori)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn"><b>WAJIB — transfer binary-safe:</b> kirim folder hasil encode dengan
+  <code>scp</code>, <code>rsync</code>, atau SFTP <b>mode biner</b>. <b>Jangan</b> FTP mode ASCII,
+  jangan copy-paste isi file ke editor — base64 bisa rusak → error <code>payload rusak</code> saat dijalankan.</div>
+
+  <div class="note"><b>Tips:</b>
+    <ul style="margin-bottom:0">
+      <li>Folder output sebaiknya <b>berbeda</b> dari folder sumber agar source asli tetap aman.</li>
+      <li>Master key saat encode harus <b>sama</b> dengan yang terpasang di server klien.</li>
+      <li>Untuk encode ulang (update produk), jalankan perintah yang sama — folder output ditimpa.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============== 8 ============== -->
+<section class="section">
+  <h2>8 · Server — Web UI</h2>
+  <p>Alternatif encode lewat browser, cocok untuk yang tidak suka CLI.</p>
+  <pre><span class="k">php</span> -S 127.0.0.1:8080 -t web
+<span class="c"># buka http://127.0.0.1:8080</span></pre>
+
+  <p>Di halaman tersebut Anda bisa: unggah satu/beberapa <code>.php</code>, atur domain &amp; expiry,
+  centang <b>rename variabel</b>, centang <b>"Hanya file loader"</b> (loader-only), dan isi
+  <b>"Kecualikan"</b> (pola file yang tak di-encode). Hasilnya diunduh sebagai ZIP — atau, jika
+  loader-only + hanya 1 file diunggah, langsung sebagai <b>1 file <code>.php</code></b>.</p>
+
+  <div class="warn"><b>Keamanan Web UI:</b> halaman ini memegang master key. Jalankan <b>hanya</b> di
+  localhost / jaringan internal. Jangan ekspos ke internet publik tanpa autentikasi.</div>
+</section>
+
+<!-- ============== 8 ============== -->
+<section class="section">
+  <h2>9 · Client — Instalasi Satu Baris <span class="tag cli">hanya-baca</span></h2>
+  <p>Edisi client <b>hanya menjalankan</b> file ter-encode. Tidak ada encoder, keygen, maupun Web UI.
+  Master key <b>tidak</b> ada di repo ini — Anda memasukkannya sendiri (dari vendor) setelah install.</p>
+
+  <h3>Linux / macOS</h3>
+  <pre><span class="k">curl</span> -fsSL https://raw.githubusercontent.com/yugoit211/dygo-loader/main/install.sh | bash</pre>
+  <h3>Windows (PowerShell)</h3>
+  <pre><span class="k">irm</span> https://raw.githubusercontent.com/yugoit211/dygo-loader/main/install.ps1 | iex</pre>
+
+  <h3>Yang dilakukan installer (serba otomatis)</h3>
+  <ol>
+    <li><b>Meminta master key di awal</b> — satu-satunya input yang diminta.</li>
+    <li><b>Memverifikasi key</b> terhadap file canary. <span class="tag cli">gate</span>
+        <b>Kalau key salah → instalasi BERHENTI</b> (tidak ada yang dipasang). Kalau benar → lanjut.</li>
+    <li>Mendeteksi PHP (versi, ABI, OS/arch) &amp; memasang biner loader
+        (<b>prebuilt</b> untuk Linux x86_64 &amp; macOS, PHP 8.1–8.5; atau build dari sumber bila ada <code>phpize</code>).</li>
+    <li>Mengaktifkan loader di <code>php.ini</code>.</li>
+    <li>Memasang perintah <code>dygo</code> &amp; <b>menyetel PATH otomatis</b> (symlink <code>/usr/local/bin</code> untuk root).</li>
+    <li>Menyimpan master key &amp; menjalankan <code>dygo doctor</code>.</li>
+  </ol>
+  <div class="ok"><b>Alur klien = 1 langkah:</b> jalankan perintah di atas, tempel master key saat diminta,
+  selesai. Key salah tidak akan pernah lolos.</div>
+  <div class="note">Biner loader di repo client bersifat <b>keyless</b> (tanpa key tertanam). Aman untuk
+  repo publik — master key disuplai saat runtime. Key diuji otomatis via file <b>canary</b>
+  (<code>canary.dygo.php</code>) yang dibuat vendor dengan <code>dygo canary</code>.</div>
+</section>
+
+<!-- ============== 9 ============== -->
+<section class="section">
+  <h2>10 · Client — Memasang Master Key</h2>
+  <p>Loader butuh master key untuk mendekripsi. Minta key (64 hex) ke vendor, lalu pasang dengan
+  salah satu cara berikut.</p>
+
+  <h4>Cara 1 — File (paling andal, termasuk untuk web/php-fpm)</h4>
+  <pre><span class="k">echo</span> 'KEY_HEX_DARI_VENDOR' &gt; ~/.dygo-client/dygo.key
+<span class="k">chmod</span> 600 ~/.dygo-client/dygo.key</pre>
+
+  <h4>Cara 2 — Environment variable</h4>
+  <pre><span class="k">export</span> DYGO_KEY=KEY_HEX_DARI_VENDOR</pre>
+
+  <h3>Urutan pencarian key oleh loader</h3>
+  <pre>DYGO_KEY  →  DYGO_MASTER_KEY  →  DYGO_KEY_FILE  →  ~/.dygo-client/dygo.key  →  /etc/dygo/dygo.key</pre>
+
+  <div class="warn"><b>Untuk web (Apache/Nginx + php-fpm):</b> simpan key sebagai <b>file</b> di atas —
+  environment variable sering tak terbaca oleh php-fpm — lalu <b>restart</b> php-fpm.</div>
+  <div class="ok"><b>Catatan:</b> biner loader dan file ter-encode harus memakai master key yang <b>sama</b>.
+  Jika beda, verifikasi HMAC gagal dan file ditolak (justru bukti proteksi bekerja).</div>
+
+  <h3>Verifikasi key (otomatis &amp; manual)</h3>
+  <p>Installer hanya mengecek <b>format</b> key (64 hex). Kebenarannya dibuktikan terhadap file
+  <b>canary</b> dari vendor:</p>
+  <ul>
+    <li><b>Otomatis saat install</b> — bila ada <code>~/.dygo-client/canary.php</code> atau
+        <code>DYGO_VERIFY_FILE</code>, installer menolak key yang salah.</li>
+    <li><b>Manual kapan saja</b> — <code>dygo verify &lt;file-dari-vendor.php&gt;</code>:</li>
+  </ul>
+  <pre><span class="k">dygo verify</span> /var/www/app/index.php
+<span class="s">✓ Master key COCOK …   (atau)   ✗ Master key TIDAK cocok</span></pre>
+  <p>Vendor membuat canary dengan <code>php bin/dygo canary -o canary.dygo.php</code> lalu mengirimkannya
+  ke klien.</p>
+</section>
+
+<!-- ============== 10 ============== -->
+<section class="section">
+  <h2>11 · Client — Perintah &amp; Verifikasi</h2>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:30%">Perintah</th><th>Fungsi</th></tr></thead>
+    <tbody>
+      <tr><td><code>dygo doctor</code></td><td>Cek: loader aktif? key terpasang? machine-id terdeteksi?</td></tr>
+      <tr><td><code>dygo setkey [hex]</code></td><td>Pasang/ubah master key (interaktif bila tanpa argumen)</td></tr>
+      <tr><td><code>dygo verify &lt;file&gt;</code></td><td>Uji apakah master key COCOK dengan file ter-encode vendor</td></tr>
+      <tr><td><code>dygo machineid</code></td><td>Tampilkan node-hash server ini → kirim ke vendor untuk node-lock</td></tr>
+      <tr><td><code>dygo uninstall</code></td><td>Lepas loader dari php.ini + hapus perintah</td></tr>
+      <tr><td><code>dygo keygen / encode</code></td><td><b>Sengaja ditolak</b> di edisi client</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Menjalankan hasil</h3>
+  <p>Setelah loader terpasang dan key ada, file ter-encode dari vendor <b>jalan otomatis</b> —
+  tanpa file pendukung, tanpa <code>include</code> tambahan:</p>
+  <pre><span class="k">php</span> index.php            <span class="c"># bila index.php ter-encode, loader mendekripsi di memori</span></pre>
+
+  <h3>Tanpa loader C (fallback PHP murni)</h3>
+  <p>Bila server tak punya <code>phpize</code>/prebuilt, pakai bundel fallback: sertakan
+  <code>dygo-runtime.php</code> + <code>dygo-codec.php</code> dan set master key. Proteksinya lebih
+  lemah (key berdampingan dengan kode), jadi pakai loader C bila memungkinkan.</p>
+</section>
+
+<!-- ============== 11 ============== -->
+<section class="section">
+  <h2>12 · Alur Kerja Lengkap (Vendor → Client)</h2>
+  <div class="two">
+    <div class="cardbox">
+      <h4>Di sisi Vendor (sekali setup)</h4>
+      <pre>php bin/dygo keygen
+php bin/dygo install
+<span class="c"># encode produk Anda</span>
+php bin/dygo encode src/ \
+  -o dist/ --loader-only \
+  --domain '*.klien.com' \
+  --expire 2027-12-31
+<span class="c"># buat canary utk verifikasi key</span>
+php bin/dygo canary \
+  -o canary.dygo.php</pre>
+      <p style="font-size:9.5pt;margin:0">Kirim folder <code>dist/</code> + <code>canary.dygo.php</code>
+      + master key (lewat jalur aman terpisah) ke klien.</p>
+    </div>
+    <div class="cardbox">
+      <h4>Di sisi Client (sekali setup)</h4>
+      <pre><span class="c"># taruh canary utk verifikasi</span>
+cp canary.dygo.php \
+  ~/.dygo-client/canary.php
+
+curl -fsSL .../dygo-loader/\
+main/install.sh | bash
+<span class="c"># tempel master key saat diminta</span>
+<span class="c"># (key salah → install berhenti)</span>
+
+<span class="c"># deploy dist/ lalu jalankan</span>
+php index.php</pre>
+      <p style="font-size:9.5pt;margin:0">Produk jalan otomatis. Klien tak bisa membaca source
+      maupun membuat enkripsi.</p>
+    </div>
+  </div>
+
+  <h3>Memaket bundel client siap-kirim (opsional)</h3>
+  <p>Vendor bisa membungkus paket client lengkap (loader + CLI hanya-baca, tanpa encoder):</p>
+  <pre><span class="k">bootstrap/make-client.sh</span>            <span class="c"># → dist/dygo-client.tar.gz</span></pre>
+  <p>Klien: <code>tar -xzf dygo-client.tar.gz &amp;&amp; sh dygo-client/install-client.sh</code></p>
+</section>
+
+<!-- ============== 12 ============== -->
+<section class="section">
+  <h2>13 · Model Keamanan</h2>
+
+  <h3>Base64 ≠ enkripsi, dan kenapa bukan "bytecode mentah"</h3>
+  <p>Alur proteksi: <b>source → AES-256-CBC (enkripsi) → HMAC-SHA256 → base64 → disimpan di file <code>.php</code></b>.</p>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td><b>Base64</b></td><td>Hanya <i>pembungkus teks</i> agar byte terenkripsi bisa disimpan di file <code>.php</code>.
+        Reversible — tapi hasil decode = <b>ciphertext acak</b>, bukan kode. Lihat contoh di bawah.</td></tr>
+      <tr><td><b>AES-256</b></td><td>Proteksi sebenarnya. Tanpa master key, membongkar praktis mustahil.</td></tr>
+      <tr><td><b>HMAC</b></td><td>Anti-tamper. Ubah 1 byte → file ditolak.</td></tr>
+    </tbody>
+  </table>
+  <pre><span class="c"># base64-decode payload (yang dilakukan "penyerang") menghasilkan byte acak:</span>
+4d00…{"v":1,"name":"app.php"}…  <span class="c">← metadata (bukan rahasia)</span>
+faf6b78fbc2abb980f973786824f7d…  <span class="c">← ciphertext AES (source TAK terlihat)</span></pre>
+  <div class="note"><b>Soal "bytecode seperti ionCube":</b> ionCube sendiri <b>bukan</b> bytecode mentah — ionCube
+  juga <b>mengenkripsi</b> representasi kode lalu loader-nya mendekripsi di memori. Bytecode PHP (Zend opcode)
+  mentah justru <b>lebih lemah</b>: ada decompiler opcode→PHP, dan formatnya berubah tiap versi PHP (mudah rusak).
+  DYGO memakai model yang benar: <b>enkripsi + dekripsi di memori + obfuscation</b> — plaintext tak pernah ke disk.</div>
+
+  <h3>Yang DIJAMIN</h3>
+  <ul>
+    <li>Source asli tidak tersimpan sebagai plaintext di disk — dekripsi hanya di memori.</li>
+    <li>Anti-tamper: ubah 1 byte file ter-encode → HMAC gagal → ditolak.</li>
+    <li>Lisensi (domain / expiry / node-lock) ditegakkan kedua loader (C &amp; PHP murni).</li>
+    <li>Edisi client tidak memiliki kemampuan encode/keygen.</li>
+    <li>Repo client keyless — master key tidak pernah ada di repo publik.</li>
+  </ul>
+
+  <h3>Yang TIDAK dijamin</h3>
+  <div class="warn">
+    <ul style="margin:0">
+      <li>Ini <b>bukan</b> jaminan anti-reverse mutlak. Seperti ionCube sekalipun, kode yang akhirnya dijalankan mesin PHP secara teori bisa diintip penyerang dengan akses penuh ke server.</li>
+      <li>Tujuan realistis: <b>menaikkan biaya reverse-engineering secara signifikan</b>, bukan kemustahilan.</li>
+    </ul>
+  </div>
+
+  <h3>Aturan emas master key</h3>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td>🔑</td><td>Backup master key. Hilang = semua file ter-encode tak terbuka selamanya.</td></tr>
+      <tr><td>🚫</td><td>Jangan commit / sebar <code>master.key.hex</code>.</td></tr>
+      <tr><td>🏭</td><td>Untuk proteksi serius, pakai <b>loader C</b> + mode <code>--loader-only</code>; jangan distribusikan key hex.</td></tr>
+      <tr><td>👥</td><td>Banyak klien? Pertimbangkan master key <b>berbeda per klien</b> agar kebocoran satu klien tak membahayakan lainnya.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============== 13 ============== -->
+<section class="section">
+  <h2>14 · Pemecahan Masalah</h2>
+  <table class="avoidbreak">
+    <thead><tr><th style="width:42%">Gejala</th><th>Solusi</th></tr></thead>
+    <tbody>
+      <tr><td><b>"master key tidak ditemukan"</b> (client)</td><td>Pasang key: <code>echo 'HEX' &gt; ~/.dygo-client/dygo.key</code> atau set <code>DYGO_KEY</code>. Untuk web, restart php-fpm.</td></tr>
+      <tr><td><b>"verifikasi integritas gagal"</b></td><td>Master key loader ≠ key saat encode. Pastikan keduanya sama. Atau file ter-encode termodifikasi.</td></tr>
+      <tr><td><b>"payload rusak"</b></td><td>File ter-encode <b>rusak/terpotong saat transfer</b> (bukan masalah key). Jangan edit/copy-paste file ter-encode. Kirim ulang <b>binary-safe</b>: <code>scp</code>/<code>rsync</code>/SFTP mode biner — <b>jangan FTP mode ASCII</b>.</td></tr>
+      <tr><td><b>loader tidak aktif</b> setelah install</td><td>Cek <code>php -m | grep dygo</code>. Untuk web, <b>restart</b> php-fpm/apache. Jalankan <code>dygo doctor</code>.</td></tr>
+      <tr><td><b>build loader gagal</b> (no phpize)</td><td>Pasang <code>php-dev</code>. Atau pakai prebuilt / fallback PHP murni.</td></tr>
+      <tr><td><b>file ter-encode tampil pesan 500</b></td><td>Mode loader-only tapi ekstensi <code>dygo_loader</code> belum aktif. Pasang loader di server tujuan.</td></tr>
+      <tr><td><b>node-lock tak berfungsi</b></td><td>Machine-id tak terdeteksi di server. Cek <code>dygo machineid</code>; gunakan domain/expiry sebagai alternatif.</td></tr>
+    </tbody>
+  </table>
+  <div class="note">Perintah serba-guna untuk diagnosa: <code>php bin/dygo doctor</code> (server) atau
+  <code>dygo doctor</code> (client).</div>
+</section>
+
+<!-- ============== 14 ============== -->
+<section class="section">
+  <h2>15 · Lampiran — Ringkasan Perintah</h2>
+
+  <h3>Server (Vendor)</h3>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td><code>php bin/dygo keygen</code></td><td>Buat master key (sekali)</td></tr>
+      <tr><td><code>php bin/dygo install</code></td><td>Build &amp; pasang loader C</td></tr>
+      <tr><td><code>php bin/dygo encode &lt;in&gt; -o &lt;out&gt;</code></td><td>Encode file/folder</td></tr>
+      <tr><td><code>php bin/dygo machineid</code></td><td>Node-hash server ini</td></tr>
+      <tr><td><code>php bin/dygo canary -o canary.dygo.php</code></td><td>Buat file verifikasi key untuk klien</td></tr>
+      <tr><td><code>php bin/dygo doctor</code></td><td>Cek lingkungan</td></tr>
+      <tr><td><code>php bin/dygo uninstall [--purge]</code></td><td>Lepas loader</td></tr>
+      <tr><td><code>php -S 127.0.0.1:8080 -t web</code></td><td>Jalankan Web UI</td></tr>
+      <tr><td><code>bootstrap/make-client.sh</code></td><td>Paket bundel client</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Flag <code>encode</code></h3>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td><code>--loader-only</code></td><td>1 file per PHP, tanpa fallback</td></tr>
+      <tr><td><code>--exclude &lt;pola&gt;</code></td><td>PHP yang tak di-encode (glob, boleh berulang)</td></tr>
+      <tr><td><code>--domain &lt;host&gt;</code></td><td>Kunci domain (dukung <code>*.</code>)</td></tr>
+      <tr><td><code>--expire &lt;tgl&gt;</code></td><td>Masa berlaku</td></tr>
+      <tr><td><code>--node &lt;hash&gt;</code></td><td>Kunci ke server tertentu</td></tr>
+      <tr><td><code>--rename-vars</code></td><td>Obfuscate variabel</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Client (hanya-baca)</h3>
+  <table class="avoidbreak">
+    <tbody>
+      <tr><td><code>curl -fsSL .../dygo-loader/main/install.sh | bash</code></td><td>Instalasi (minta key di awal, verifikasi otomatis)</td></tr>
+      <tr><td><code>dygo setkey</code></td><td>Pasang/ubah master key</td></tr>
+      <tr><td><code>dygo verify &lt;file&gt;</code></td><td>Uji key cocok dengan file vendor</td></tr>
+      <tr><td><code>dygo doctor</code></td><td>Cek status</td></tr>
+      <tr><td><code>dygo machineid</code></td><td>Node-hash (untuk node-lock)</td></tr>
+      <tr><td><code>dygo uninstall</code></td><td>Lepas loader</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:10mm; padding-top:4mm; border-top:2px solid var(--brand); color:var(--muted); font-size:9.5pt; text-align:center">
+    DYGO — PHP Source Protector · Dokumentasi v1.1 · 15 November 2026<br>
+    Lindungi hanya kode milik Anda sendiri. Jangan gunakan untuk menyembunyikan kode berbahaya.
+  </div>
+</section>
+
+</body>
+</html>
