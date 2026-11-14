@@ -36,3 +36,6 @@ loader/config.log
 loader/config.status
 loader/config.nice
 loader/*.dep
+
+# Claude Code local settings (jangan commit)
+.claude/settings.local.json

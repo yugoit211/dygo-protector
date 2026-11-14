@@ -210,7 +210,9 @@ Ringkas (detail resmi: wiki "Building PHP" & php-sdk-binary-tools):
 
 Agar tidak perlu compile manual di tiap server, repo ini menyertakan workflow
 `.github/workflows/build-loader.yml` yang membangun loader untuk
-**Linux, macOS, Windows × PHP 8.1–8.5 (NTS, plus TS untuk Windows)**.
+**Linux + macOS × PHP 8.1–8.5 (NTS)**. (Windows tidak dibangun di CI karena
+build ekstensi C Windows memerlukan php-sdk + MSVC yang rapuh di runner; di
+Windows gunakan loader PHP murni tanpa compile — §6.1 — atau build DLL manual — §6.3.)
 
 Cara pakai:
 

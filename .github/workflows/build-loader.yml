@@ -1,15 +1,17 @@
 name: Build DYGO Loader
 
-# Membangun ekstensi loader C untuk banyak versi PHP + OS, lalu mengunggahnya
-# sebagai artifact (dan sebagai aset Release bila dipicu oleh tag vX.Y.Z).
+# Membangun ekstensi loader C untuk banyak versi PHP (Linux + macOS), lalu
+# mengunggahnya sebagai artifact (dan sebagai aset Release bila dipicu tag vX.Y.Z).
+#
+# Windows: build ekstensi C dari source di CI tidak andal (perlu php-sdk + MSVC),
+# jadi TIDAK dibangun otomatis di sini. Di Windows gunakan loader PHP murni
+# (tanpa compile) — lihat docs/INSTALL.md — atau build DLL manual.
 #
 # PENTING soal master key:
-#   - Set Secret repo bernama DYGO_MASTER_KEY (hex 64 char) = isi keys/master.key.hex.
-#   - Key itu ditanam ke dalam biner saat build (ci/patch-key.php).
-#   - Artifact/Release HASILNYA MENGANDUNG KEY ANDA → perlakukan sebagai RAHASIA.
-#     Pakai repo privat, atau jangan publikasikan biner ini ke publik.
-#   - Tanpa secret: build tetap jalan untuk UJI KOMPILASI memakai key acak
-#     ephemeral (biner tidak berguna untuk produksi).
+#   - Set Secret repo DYGO_MASTER_KEY (hex 64 char) = isi keys/master.key.hex.
+#   - Key ditanam ke biner saat build (ci/patch-key.php).
+#   - Artifact/Release MENGANDUNG KEY ANDA → perlakukan sebagai RAHASIA (repo privat).
+#   - Tanpa secret: build tetap jalan untuk uji kompilasi memakai key acak ephemeral.
 
 on:
   workflow_dispatch:
@@ -17,108 +19,67 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: write   # untuk membuat Release pada tag
+  contents: write
 
 jobs:
   build:
-    name: ${{ matrix.os }} · PHP ${{ matrix.php }} · ${{ matrix.ts }}
+    name: ${{ matrix.os }} · PHP ${{ matrix.php }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         php: ['8.1', '8.2', '8.3', '8.4', '8.5']
-        ts: [nts]
-        include:
-          # Apache di Windows umumnya Thread-Safe (TS) → sediakan juga varian TS.
-          - os: windows-latest
-            php: '8.3'
-            ts: ts
-          - os: windows-latest
-            php: '8.4'
-            ts: ts
-          - os: windows-latest
-            php: '8.5'
-            ts: ts
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP SDK (toolchain + headers)
-        id: php
-        uses: shivammathur/setup-php-sdk@v0
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
         with:
-          version: ${{ matrix.php }}
-          arch: ${{ runner.os == 'macOS' && 'arm64' || 'x64' }}
-          ts: ${{ matrix.ts }}
-
-      - name: Setup MSVC (Windows)
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ steps.php.outputs.arch }}
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
 
       - name: Tanam master key ke header
         env:
           DYGO_MASTER_KEY: ${{ secrets.DYGO_MASTER_KEY }}
         run: php ci/patch-key.php
 
-      # ---------- Build: Linux / macOS ----------
-      - name: Build (Unix)
-        if: runner.os != 'Windows'
+      - name: Build (phpize + make)
         working-directory: loader
         run: |
           phpize
           ./configure --enable-dygo-loader
           make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 
-      # ---------- Build: Windows ----------
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
-        working-directory: loader
-        shell: cmd
-        run: |
-          phpize
-          call configure --enable-dygo-loader
-          nmake
-
-      # ---------- Kumpulkan biner ke layout prebuilt ----------
       - name: Organize artifact
         shell: bash
         run: |
           set -e
-          PHPV="${{ matrix.php }}"
-          TS="${{ matrix.ts }}"
-          if [ "${{ runner.os }}" = "Windows" ]; then ARCH="x64"; else ARCH="$(uname -m)"; fi
+          ARCH="$(uname -m)"
           case "$ARCH" in x86_64) ARCH="x64";; aarch64|arm64) ARCH="arm64";; esac
-          DEST="loader/prebuilt/php${PHPV}-${TS}-${ARCH}"
+          DEST="loader/prebuilt/php${{ matrix.php }}-nts-${ARCH}"
           mkdir -p "$DEST"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            BIN="$(find loader -name 'php_dygo_loader.dll' | head -1)"
-            cp "$BIN" "$DEST/php_dygo_loader.dll"
-          else
-            cp loader/modules/dygo_loader.so "$DEST/dygo_loader.so"
-          fi
+          cp loader/modules/dygo_loader.so "$DEST/dygo_loader.so"
           echo "DEST=$DEST" >> "$GITHUB_ENV"
           ls -la "$DEST"
 
-      # ---------- Uji muat + jalankan (Unix saja, cepat) ----------
-      - name: Smoke test (Unix)
-        if: runner.os != 'Windows'
+      - name: Smoke test (encode + jalankan via loader)
         shell: bash
         run: |
           set -e
-          # keys/master.key.hex sudah diisi oleh ci/patch-key.php
+          # keys/master.key.hex sudah diisi ci/patch-key.php
           php bin/dygo encode samples/hello.php -o /tmp/ci-hello.php
-          SO="$(find loader -name dygo_loader.so | head -1)"
-          OUT="$(php -d extension="$PWD/$SO" -r 'require "/tmp/ci-hello.php"; echo Acme\Secret::greet("CI");')"
+          SO="$PWD/loader/modules/dygo_loader.so"
+          OUT="$(php -d extension="$SO" -r 'require "/tmp/ci-hello.php"; echo Acme\Secret::greet("CI");')"
           echo "$OUT"
           echo "$OUT" | grep -q "hasil = 1379"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dygo-loader-${{ matrix.os }}-php${{ matrix.php }}-${{ matrix.ts }}
+          name: dygo-loader-${{ matrix.os }}-php${{ matrix.php }}
           path: ${{ env.DEST }}/*
           if-no-files-found: error
 
@@ -147,11 +108,11 @@ jobs:
         with:
           files: artifacts/*.zip
           body: |
-            Biner DYGO Loader (dibangun otomatis).
+            Biner DYGO Loader (Linux + macOS, dibangun otomatis).
 
-            ⚠️ Biner ini menanam master key dari secret `DYGO_MASTER_KEY` —
+            ⚠️ Biner menanam master key dari secret DYGO_MASTER_KEY —
             perlakukan sebagai RAHASIA, jangan sebar ke publik.
 
-            Pasang: letakkan file di `extension_dir` PHP target lalu tambahkan
-            `extension=dygo_loader.so` (atau `extension=php_dygo_loader` di Windows)
-            ke `php.ini`. Lihat docs/INSTALL.md.
+            Pasang: letakkan dygo_loader.so di extension_dir PHP target lalu tambahkan
+            extension=dygo_loader.so ke php.ini. Lihat docs/INSTALL.md.
+            Windows: gunakan loader PHP murni (tanpa compile) — docs/INSTALL.md.

@@ -34,6 +34,26 @@ File ter-encode = stub PHP terbaca + `__halt_compiler();` + `DYGO0001` +
 base64(payload). Loader mendekripsi di memori (plaintext **tak pernah** ke disk),
 verifikasi HMAC + lisensi, lalu compile source asli. Detail byte: `shared/FORMAT.md`.
 
+## Instalasi satu baris (seperti CLI modern)
+
+Repo privat (butuh `gh` yang sudah login — `gh auth login`):
+
+```bash
+# Linux / macOS
+gh api repos/yugoit211/dygo-protector/contents/bootstrap/dygo-install.sh -H "Accept: application/vnd.github.raw" | sh
+```
+```powershell
+# Windows (PowerShell / Terminal)
+gh api repos/yugoit211/dygo-protector/contents/bootstrap/dygo-install.ps1 -H "Accept: application/vnd.github.raw" | iex
+```
+
+Opsi: tambahkan `| sh -s -- --with-loader` (build loader C, Linux/macOS) atau
+`--fallback-only`. Di Windows set `$env:DYGO_FALLBACK_ONLY="1"` sebelum menjalankan.
+
+Installer mengunduh DYGO ke `~/.dygo`, memasang perintah **`dygo`** ke PATH, dan
+siap dipakai. Jika repo dibuat publik, one-liner-nya cukup `curl … | sh` /
+`irm … | iex` tanpa `gh`.
+
 ## Mulai cepat
 
 > 📘 **Panduan instalasi lengkap (Windows/Linux/Mac, detail): [`docs/INSTALL.md`](docs/INSTALL.md)**
