@@ -246,10 +246,17 @@ static zend_op_array *dygo_compile_source(const char *src, size_t len, const cha
     oa = zend_compile_string(code, filename, ZEND_COMPILE_POSITION_AT_SHEBANG);
     zend_string_release(code);
 #elif PHP_VERSION_ID >= 80100
-    /* PHP 8.1: zend_compile_string(zend_string*, const char*) */
-    zend_string *code = zend_string_init(src, len, 0);
-    oa = zend_compile_string(code, filename);
-    zend_string_release(code);
+    /* PHP 8.1: zend_compile_string(zend_string*, const char*) meng-compile
+       gaya eval (mode PHP, TANPA tag pembuka). Buang <?php di awal. */
+    {
+        const char *s = src; size_t l = len;
+        if (l >= 5 && strncasecmp(s, "<?php", 5) == 0) { s += 5; l -= 5; }
+        else if (l >= 3 && strncasecmp(s, "<?=", 3) == 0) { s += 3; l -= 3; }
+        else if (l >= 2 && s[0] == '<' && s[1] == '?') { s += 2; l -= 2; }
+        zend_string *code = zend_string_init(s, l, 0);
+        oa = zend_compile_string(code, filename);
+        zend_string_release(code);
+    }
 #else /* PHP 8.0: zend_compile_string(zval*, const char*) */
     zval code;
     ZVAL_STRINGL(&code, src, len);
